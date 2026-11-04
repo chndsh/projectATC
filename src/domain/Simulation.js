@@ -19,6 +19,9 @@ export class Simulation {
     this.width = options.width || 800;
     this.height = options.height || 450;
 
+    // Available cruising altitude corridors (well below HUD, above runway)
+    this.altitudeCorridors = [100, 150, 200, 250, 300];
+
     // Runway configuration (Full width along bottom)
     this.runwayY = 395;
     // Left landing entry gate: x: 0 to 140, y: 360 to 430
@@ -42,26 +45,56 @@ export class Simulation {
     return cs;
   }
 
+  getFreeAltitude() {
+    const used = new Set(this.planes.map(p => p.targetAltitude));
+    const free = this.altitudeCorridors.filter(a => !used.has(a));
+    if (free.length > 0) {
+      return free[Math.floor(Math.random() * free.length)];
+    }
+    return this.altitudeCorridors[Math.floor(Math.random() * this.altitudeCorridors.length)];
+  }
+
   spawnPlane(overrides = {}) {
     const callSign = overrides.callSign || this.generateCallSign();
     const fuel = overrides.fuel !== undefined ? overrides.fuel : (30 + Math.floor(Math.random() * 50));
 
-    // Spawn strictly from the RIGHT edge, never from the top or on the HUD dashboard
-    // Screen height is 450, HUD is y: 0 to 45, runway is y: 390+
-    // Active airspace corridors: y between 80 and 340
-    const availableAltitudes = [90, 140, 190, 240, 290, 330];
-    const y = overrides.y !== undefined
-      ? overrides.y
-      : availableAltitudes[Math.floor(Math.random() * availableAltitudes.length)];
+    // Choose target altitude
+    const targetAltitude = overrides.targetAltitude !== undefined
+      ? overrides.targetAltitude
+      : (overrides.y !== undefined ? overrides.y : this.getFreeAltitude());
 
-    const x = overrides.x !== undefined ? overrides.x : 785;
-    // Ingress heading is westbound (flying left towards airspace)
-    const heading = overrides.heading !== undefined ? overrides.heading : Math.PI;
+    // Spawn origin:
+    // Either from below HUD (y = 52) with graceful angular descent,
+    // or from right edge at an altitude corridor
+    const spawnType = overrides.spawnType || (Math.random() < 0.5 ? 'TOP_ANGULAR' : 'RIGHT_EDGE');
+    let x, y, heading, isLevelFlight;
+
+    if (overrides.x !== undefined && overrides.y !== undefined) {
+      x = overrides.x;
+      y = overrides.y;
+      heading = overrides.heading !== undefined ? overrides.heading : Math.PI;
+      isLevelFlight = overrides.isLevelFlight !== undefined ? overrides.isLevelFlight : true;
+    } else if (spawnType === 'TOP_ANGULAR') {
+      // Spawn safely below the HUD (dashboard is y: 0 to 45)
+      x = overrides.x !== undefined ? overrides.x : (200 + Math.floor(Math.random() * 500));
+      y = overrides.y !== undefined ? overrides.y : 52;
+      // Realistic graceful shallow ingress angle (~15-20 degrees descent pitch: 0.88*PI to 0.94*PI)
+      heading = overrides.heading !== undefined ? overrides.heading : (Math.PI * 0.90 + Math.random() * 0.05);
+      isLevelFlight = false;
+    } else {
+      // Right edge
+      x = overrides.x !== undefined ? overrides.x : 785;
+      y = overrides.y !== undefined ? overrides.y : targetAltitude;
+      heading = overrides.heading !== undefined ? overrides.heading : Math.PI; // Westbound
+      isLevelFlight = true;
+    }
 
     const plane = new Plane(callSign, fuel, {
       x,
       y,
       heading,
+      targetAltitude,
+      isLevelFlight,
       ...overrides,
     });
 
@@ -104,7 +137,7 @@ export class Simulation {
     // 1. Move planes, drain fuel, check bounds
     for (const plane of this.planes) {
       if (plane.state !== PlaneState.LANDED) {
-        // Fuel only burns while airborne (stops immediately as soon as plane touches landing zone / starts rollout!)
+        // Fuel only burns while airborne
         if (plane.state !== PlaneState.LANDING) {
           plane.timeInFlight += dt;
           plane.burnFuel(fuelToBurn);
@@ -126,7 +159,6 @@ export class Simulation {
           plane.y >= this.landingGate.minY &&
           plane.y <= this.landingGate.maxY
         ) {
-          // Locked into landing!
           plane.startLanding();
           plane.y = this.runwayY;
         }
@@ -140,14 +172,19 @@ export class Simulation {
           this.landedPlanes.push(plane);
         }
 
-        // Wrap or reverse horizontally for unassigned planes at constant altitude so they loop cleanly in airspace
+        // Screen edge wrapping & circulation:
+        // When unassigned plane flies off left side (< 0), it rounds and re-enters from right side
+        // at an available altitude corridor to avoid blocking new spawns!
         if (!plane.hasPath() && plane.state === PlaneState.CRUISING) {
-          if (plane.x < 30) {
-            plane.x = 30;
-            plane.heading = 0; // Turn right
-          } else if (plane.x > 770) {
-            plane.x = 770;
-            plane.heading = Math.PI; // Turn left
+          if (plane.x < -10) {
+            plane.x = 790;
+            plane.targetAltitude = this.getFreeAltitude();
+            plane.y = plane.targetAltitude;
+            plane.heading = Math.PI; // Fly leftward across new corridor
+            plane.isLevelFlight = true;
+          } else if (plane.x > 820) {
+            plane.x = 790;
+            plane.heading = Math.PI;
           }
         }
       }
@@ -159,7 +196,6 @@ export class Simulation {
         const p1 = this.planes[i];
         const p2 = this.planes[j];
 
-        // Only check planes that are still airborne (not finished rollout)
         if (p1.state !== PlaneState.LANDED && p2.state !== PlaneState.LANDED) {
           const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
           if (dist < this.collisionDistance) {

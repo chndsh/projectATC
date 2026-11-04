@@ -69,20 +69,30 @@ describe('Plane Domain Model 2D', () => {
     expect(plane.path[0].x).toBe(120);
   });
 
-  it('maintains constant altitude when cruising without assigned path', () => {
-    const targetAltitude = 160;
-    const plane = new Plane('ALTITUDE_HOLD', 50, {
-      x: 700,
-      y: targetAltitude,
-      heading: Math.PI, // Flying left
-      speed: 40,
+  it('descends at a realistic shallow angle until reaching assigned altitude, then levels off', () => {
+    const targetAltitude = 180;
+    // Spawns below HUD at y = 55, target altitude 180
+    const plane = new Plane('DESCENT', 50, {
+      x: 600,
+      y: 55,
+      targetAltitude: targetAltitude,
+      heading: Math.PI * 0.9, // Gentle downward-left angle (~18 degrees pitch)
+      speed: 50,
     });
 
-    // Update movement across multiple seconds
-    plane.updateMovement(1.0);
-    expect(plane.y).toBe(targetAltitude);
+    expect(plane.y).toBe(55);
+    expect(plane.isLevelFlight).toBe(false);
 
-    plane.updateMovement(2.0);
+    // Advance flight: plane should descend
+    plane.updateMovement(1.0);
+    expect(plane.y).toBeGreaterThan(55);
+    expect(plane.y).toBeLessThanOrEqual(targetAltitude);
+
+    // Advance until it reaches target altitude
+    plane.updateMovement(20.0);
     expect(plane.y).toBe(targetAltitude);
+    expect(plane.isLevelFlight).toBe(true);
+    // Heading levels off to purely horizontal (Math.PI or 0)
+    expect(Math.sin(plane.heading)).toBeCloseTo(0, 2);
   });
 });

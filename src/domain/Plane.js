@@ -16,7 +16,9 @@ export class Plane {
     // 2D Coordinates & Orientation
     this.x = options.x !== undefined ? options.x : 100;
     this.y = options.y !== undefined ? options.y : 100;
-    this.altitude = this.y; // Designated holding altitude
+    this.targetAltitude = options.targetAltitude !== undefined ? options.targetAltitude : this.y;
+    this.isLevelFlight = options.isLevelFlight !== undefined ? options.isLevelFlight : (Math.abs(this.y - this.targetAltitude) < 2);
+
     this.heading = options.heading !== undefined ? options.heading : Math.PI; // Default westbound (flying left)
     this.speed = options.speed || 45; // Pixels per second
 
@@ -49,8 +51,6 @@ export class Plane {
       const dy = pt.y - this.y;
       const dist = Math.hypot(dx, dy);
 
-      // In the plane's flight heading frame, check if waypoint is behind plane or very close
-      // Note: for a plane moving left (heading = Math.PI), cos(PI) = -1.
       const forwardDot = dx * Math.cos(this.heading) + dy * Math.sin(this.heading);
 
       if (dist <= 15 || forwardDot < -5) {
@@ -108,16 +108,34 @@ export class Plane {
 
         if (this.path.length === 0) {
           this.state = PlaneState.CRUISING;
+          this.targetAltitude = this.y;
+          this.isLevelFlight = true;
         }
       } else {
         this.x += Math.cos(this.heading) * step;
         this.y += Math.sin(this.heading) * step;
       }
     } else {
-      // Hold at constant assigned altitude when unassigned:
-      // Fly along its current heading at its fixed altitude y level
-      this.y = this.altitude;
-      this.x += Math.cos(this.heading) * this.speed * dt;
+      // Unassigned movement:
+      // If descending toward assigned altitude, fly along descent vector until reached
+      if (!this.isLevelFlight) {
+        const remainingDescent = this.targetAltitude - this.y;
+        const verticalStep = Math.sin(this.heading) * this.speed * dt;
+
+        if (remainingDescent <= verticalStep || Math.abs(this.y - this.targetAltitude) < 2) {
+          // Reached target altitude! Level off into horizontal cruise
+          this.y = this.targetAltitude;
+          this.isLevelFlight = true;
+          this.heading = Math.cos(this.heading) < 0 ? Math.PI : 0;
+        } else {
+          this.x += Math.cos(this.heading) * this.speed * dt;
+          this.y += verticalStep;
+        }
+      } else {
+        // Level flight at constant altitude
+        this.y = this.targetAltitude;
+        this.x += Math.cos(this.heading) * this.speed * dt;
+      }
     }
   }
 
