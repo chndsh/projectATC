@@ -18,6 +18,7 @@ export class Plane {
     this.y = options.y !== undefined ? options.y : 100;
     this.heading = options.heading !== undefined ? options.heading : 0; // In radians
     this.speed = options.speed || 45; // Pixels per second
+    this.turnRate = options.turnRate || 0.45; // Angular turn rate for circling in radians/sec
 
     this.state = PlaneState.CRUISING;
     this.timeInFlight = 0;
@@ -37,8 +38,33 @@ export class Plane {
 
   assignPath(points) {
     if (!points || points.length === 0) return;
-    this.path = points.map(pt => ({ x: pt.x, y: pt.y }));
-    this.state = PlaneState.FOLLOWING_PATH;
+
+    // Eliminate backtracking:
+    // When a player draws a path, the aircraft continues flying.
+    // Only prune if there are multiple waypoints and the initial points are behind the current position
+    // or within immediate proximity (dist < 15).
+    let startIndex = 0;
+    while (startIndex < points.length - 1) {
+      const pt = points[startIndex];
+      const dx = pt.x - this.x;
+      const dy = pt.y - this.y;
+      const dist = Math.hypot(dx, dy);
+
+      // Check if point is behind aircraft relative to its flight vector
+      const forwardDot = dx * Math.cos(this.heading) + dy * Math.sin(this.heading);
+
+      if (dist < 15 || forwardDot < 0) {
+        startIndex++;
+      } else {
+        break;
+      }
+    }
+
+    const filtered = points.slice(startIndex).map(pt => ({ x: pt.x, y: pt.y }));
+    if (filtered.length > 0) {
+      this.path = filtered;
+      this.state = PlaneState.FOLLOWING_PATH;
+    }
   }
 
   clearPath() {
@@ -88,7 +114,12 @@ export class Plane {
         this.y += Math.sin(this.heading) * step;
       }
     } else {
-      // Cruise straight in current heading
+      // Circle around in airspace (gentle constant turn rate)
+      this.heading += this.turnRate * dt;
+      // Keep heading normalized between -PI and PI
+      if (this.heading > Math.PI) this.heading -= 2 * Math.PI;
+      if (this.heading < -Math.PI) this.heading += 2 * Math.PI;
+
       this.x += Math.cos(this.heading) * this.speed * dt;
       this.y += Math.sin(this.heading) * this.speed * dt;
     }

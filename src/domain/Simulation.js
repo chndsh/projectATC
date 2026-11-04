@@ -21,12 +21,12 @@ export class Simulation {
 
     // Runway configuration (Full width along bottom)
     this.runwayY = 395;
-    // Left landing entry gate: x: 0 to 130, y: 375 to 415
+    // Left landing entry gate: x: 0 to 140, y: 360 to 430
     this.landingGate = {
       minX: 0,
-      maxX: 130,
-      minY: 375,
-      maxY: 415,
+      maxX: 140,
+      minY: 360,
+      maxY: 430,
     };
 
     // Collision threshold
@@ -109,12 +109,15 @@ export class Simulation {
     // 1. Move planes, drain fuel, check bounds
     for (const plane of this.planes) {
       if (plane.state !== PlaneState.LANDED) {
-        plane.timeInFlight += dt;
-        plane.burnFuel(fuelToBurn);
+        // Fuel only burns while airborne (stops immediately as soon as plane touches landing zone / starts rollout!)
+        if (plane.state !== PlaneState.LANDING) {
+          plane.timeInFlight += dt;
+          plane.burnFuel(fuelToBurn);
 
-        if (plane.isOutOfFuel()) {
-          this.triggerGameOver(`Plane ${plane.callSign} ran out of fuel!`);
-          return;
+          if (plane.isOutOfFuel()) {
+            this.triggerGameOver(`Plane ${plane.callSign} ran out of fuel!`);
+            return;
+          }
         }
 
         plane.updateMovement(dt);

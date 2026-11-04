@@ -64,8 +64,9 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerup', () => {
       if (this.drawingPlane) {
         if (this.currentPathPoints.length > 1) {
-          // Assign / re-assign new trajectory to plane
-          this.drawingPlane.assignPath(this.currentPathPoints);
+          // Connect current live position of plane to the drawn path if moved
+          const pts = [{ x: this.drawingPlane.x, y: this.drawingPlane.y }, ...this.currentPathPoints];
+          this.drawingPlane.assignPath(pts);
           SoundEffects.playGoAround(); // Chime for new course
         }
         const sprite = this.planeSprites.get(this.drawingPlane.id);

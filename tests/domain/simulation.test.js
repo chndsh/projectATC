@@ -24,17 +24,23 @@ describe('Simulation Engine with 2D Flight & Path Landing', () => {
     expect(sim.getState().gameOverReason).toContain('collision');
   });
 
-  it('triggers landing when a plane path reaches the left landing entry zone', () => {
+  it('triggers landing when a plane path reaches the left landing entry zone and stops fuel burn', () => {
     const sim = new Simulation({ baseSpawnInterval: 100 });
     // Spawn plane above the left landing entry zone (0 <= x <= 130, y ~ 395)
-    const plane = sim.spawnPlane({ x: 80, y: 350 });
+    const plane = sim.spawnPlane({ x: 80, y: 350, fuel: 50 });
     // User draws path entering runway gate
     plane.assignPath([
       { x: 80, y: 395 }, // Target runway gate
     ]);
 
-    sim.update(1.2); // Plane moves down and reaches threshold
+    sim.update(1.2); // Plane moves down and touches down in landing zone
     expect(plane.state).toBe('LANDING');
+
+    const fuelAtTouchdown = plane.fuel;
+    // Advance simulation further during rollout
+    sim.update(3.0);
+    // Fuel counter must stop draining once touchdown occurs!
+    expect(plane.fuel).toBe(fuelAtTouchdown);
 
     // Simulate rollout across runway
     sim.update(10.0);
