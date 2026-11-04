@@ -1,18 +1,19 @@
-## Session Decisions & Task Log (2026-11-04 - Ingress & Altitude Holding Refinement)
+## Session Decisions & Task Log (2026-11-04 - Ingress Descent & Altitude Circulation)
 
-### Issues Addressed & Root Causes:
-1. **Planes Appearing from Top or on Top of HUD Dashboard**:
-   - *Root cause*: `Simulation.spawnPlane()` was randomly picking between `'TOP'` and `'RIGHT'` edge spawning. Top spawning was placing aircraft at `y = 15`, right on top of the top HUD bar (which is 40px tall: `y = 0 to 45`).
-   - *Fix*: Removed top spawning entirely. All aircraft now spawn strictly from the **Right Edge** (`x >= 785`) and enter along clear corridors well below the HUD (`y` between 90 and 330), heading westward into airspace.
+### Decisions & Changes Made:
+1. **Realistic Shallow Angular Ingress (Below HUD Dashboard)**:
+   - Planes spawn from just below the top dashboard (`y = 52`, well clear of the `y: 0 to 45` HUD).
+   - Rather than dropping straight down, aircraft enter at a graceful, shallow flight angle (~15–20° descent pitch, `heading ≈ 0.90π`).
+   - The aircraft descends smoothly along this glide slope until it reaches its designated target flight level (`targetAltitude`), at which point it levels off into purely horizontal cruising flight.
 
-2. **Unassigned Planes Trajectory Behavior**:
-   - *Root cause*: Previous fix added a circular turn rate that caused planes to loop in circles.
-   - *Fix*: Replaced circular trajectory with **constant assigned altitude holding**. When a plane has no path assigned, it maintains its fixed altitude flight level (`y = altitude`), cruising horizontally back and forth across its assigned corridor until guided by the player.
+2. **Continuous Airspace Circulation (Screen Edge Wrap to New Altitudes)**:
+   - When an unassigned plane flying left reaches the edge of the airspace (`x < -10`), instead of stopping or bouncing back, it cleanly exits and loops back in from the right edge (`x = 790`).
+   - Upon re-entering, it dynamically chooses an open/unoccupied altitude corridor (`altitudeCorridors: [100, 150, 200, 250, 300]`) to ensure it doesn't collide with or block incoming new arrivals.
 
-3. **Fuel Freeze & Backtracking Validation**:
-   - Preserved instant fuel freeze on runway gate contact.
-   - Tested and verified backtrack culling and path assignment.
+3. **Drawing & Landing Integrity Preserved**:
+   - Touchdown in the left runway gate (`x: 0 to 140, y: 360 to 430`) freezes fuel depletion immediately and triggers full rollout.
+   - Non-backtracking path assignment connects the plane's live coordinates forward without 180° flips.
 
 ### Verification:
 - All unit tests passing: 10/10 in Vitest (`tests/domain/plane.test.js`, `tests/domain/simulation.test.js`).
-- Production bundle compiled with `npm run build` into `dist/`.
+- Static production build verified (`npm run build`).
