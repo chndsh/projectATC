@@ -10,7 +10,7 @@ export class AssetGenerator {
   static createPlaneTexture(scene) {
     if (scene.textures.exists('plane')) return;
 
-    // 32x20 Pixel Art Commercial Airplane
+    // 32x20 Pixel Art Commercial Airplane (Heading east / right)
     const canvas = document.createElement('canvas');
     canvas.width = 36;
     canvas.height = 20;
@@ -60,28 +60,42 @@ export class AssetGenerator {
   static createRunwayTexture(scene) {
     if (scene.textures.exists('runway')) return;
 
+    // 800px full-width runway
     const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = 30;
+    canvas.width = 800;
+    canvas.height = 45;
     const ctx = canvas.getContext('2d');
 
     // Asphalt dark gray
     ctx.fillStyle = '#1e293b';
-    ctx.fillRect(0, 0, 320, 30);
+    ctx.fillRect(0, 0, 800, 45);
 
-    // Green grass border
+    // Top grass border
     ctx.fillStyle = '#15803d';
-    ctx.fillRect(0, 0, 320, 2);
-    ctx.fillRect(0, 28, 320, 2);
+    ctx.fillRect(0, 0, 800, 3);
+    // Bottom grass border
+    ctx.fillRect(0, 42, 800, 3);
 
-    // Yellow threshold line
+    // Far Left Entry Threshold (Yellow chevron / piano keys)
     ctx.fillStyle = '#eab308';
-    ctx.fillRect(4, 3, 4, 24);
+    ctx.fillRect(6, 4, 8, 37);
+    ctx.fillRect(20, 4, 6, 37);
 
-    // White centerline dashes
+    // White piano key runway numbers / markers at left gate
     ctx.fillStyle = '#f8fafc';
-    for (let x = 20; x < 310; x += 25) {
-      ctx.fillRect(x, 14, 14, 2);
+    for (let y = 6; y <= 36; y += 6) {
+      ctx.fillRect(32, y, 20, 3);
+    }
+
+    // Left threshold guide text / arrow in threshold
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(60, 21, 24, 3);
+    ctx.fillRect(78, 17, 3, 11);
+
+    // Centerline dashes across full 800px width
+    ctx.fillStyle = '#f8fafc';
+    for (let x = 90; x < 790; x += 30) {
+      ctx.fillRect(x, 21, 16, 3);
     }
 
     scene.textures.addCanvas('runway', canvas);

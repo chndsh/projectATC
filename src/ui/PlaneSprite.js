@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 
 export class PlaneSprite extends Phaser.GameObjects.Container {
-  constructor(scene, plane, x, y) {
-    super(scene, x, y);
+  constructor(scene, plane) {
+    super(scene, plane.x, plane.y);
     this.plane = plane;
 
     // Sprite image
@@ -28,52 +28,28 @@ export class PlaneSprite extends Phaser.GameObjects.Container {
     this.fuelFill = scene.add.rectangle(-15, -8, 30, 4, 0x22c55e).setOrigin(0, 0.5);
     this.add(this.fuelFill);
 
-    // Drag interaction setup
-    this.setSize(44, 30);
-    this.setInteractive({ cursor: 'grab', draggable: true });
+    // Selection / hover indicator ring
+    this.selectionRing = scene.add.circle(0, 0, 18);
+    this.selectionRing.setStrokeStyle(1.5, 0x38bdf8, 0);
+    this.add(this.selectionRing);
 
-    this.isDragging = false;
-    this.dragStartPos = { x: 0, y: 0 };
+    // Set interactive container hit area for click/drawing
+    this.setSize(36, 24);
+    this.setInteractive({ cursor: 'pointer' });
 
-    this.on('dragstart', (pointer) => {
-      if (this.plane.state !== 'CIRCLING') return;
-      this.isDragging = true;
-      this.dragStartPos = { x: this.x, y: this.y };
-      this.setAlpha(0.85);
-      this.setScale(1.1);
-    });
-
-    this.on('drag', (pointer, dragX, dragY) => {
-      if (!this.isDragging) return;
-      this.x = dragX;
-      this.y = dragY;
-    });
-
-    this.on('dragend', (pointer) => {
-      if (!this.isDragging) return;
-      this.isDragging = false;
-      this.setAlpha(1.0);
-      this.setScale(1.0);
-
-      // Check if dropped into approach glide zone (right side, x >= 460)
-      if (this.x >= 460) {
-        scene.handlePlaneDroppedToApproach(this.plane);
-      } else {
-        // Snap back to altitude lane
-        scene.tweens.add({
-          targets: this,
-          x: this.dragStartPos.x,
-          y: this.dragStartPos.y,
-          duration: 200,
-          ease: 'Power2',
-        });
+    this.on('pointerdown', (pointer) => {
+      if (pointer.leftButtonDown()) {
+        scene.startPathDrawing(this.plane);
       }
     });
 
-    // Right click for Go-Around / abort if approaching
-    this.on('pointerdown', (pointer) => {
-      if (pointer.rightButtonDown()) {
-        scene.handlePlaneRightClicked(this.plane);
+    this.on('pointerover', () => {
+      this.selectionRing.setStrokeStyle(1.5, 0x38bdf8, 0.9);
+    });
+
+    this.on('pointerout', () => {
+      if (scene.drawingPlane !== this.plane) {
+        this.selectionRing.setStrokeStyle(1.5, 0x38bdf8, 0);
       }
     });
 
@@ -81,7 +57,14 @@ export class PlaneSprite extends Phaser.GameObjects.Container {
   }
 
   updateVisuals(time) {
-    // Update fuel bar width and color
+    // Sync position with plane domain coordinates
+    this.x = this.plane.x;
+    this.y = this.plane.y;
+
+    // Orient sprite along flight heading
+    this.planeImage.setRotation(this.plane.heading);
+
+    // Update fuel bar
     const fuelPct = Math.max(0, this.plane.fuel / 100);
     this.fuelFill.width = Math.max(1, 30 * fuelPct);
 
@@ -93,13 +76,6 @@ export class PlaneSprite extends Phaser.GameObjects.Container {
       // Flashing Red under 20%
       const flash = Math.floor(time / 200) % 2 === 0;
       this.fuelFill.fillColor = flash ? 0xef4444 : 0x7f1d1d;
-    }
-
-    // Orient heading: if approaching, nose points downward along glide path
-    if (this.plane.state === 'APPROACHING') {
-      this.planeImage.setRotation(0.35); // Slight pitch down
-    } else {
-      this.planeImage.setRotation(0);
     }
   }
 }

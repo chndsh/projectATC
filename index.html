@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Air Traffic Controller — Retro Web Edition</title>
+  <title>Air Traffic Controller — Flight Control Edition</title>
   <style>
     * {
       box-sizing: border-box;
@@ -26,6 +26,7 @@
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(255, 255, 255, 0.1);
       border-radius: 4px;
       overflow: hidden;
+      cursor: crosshair;
     }
     .instructions {
       margin-top: 12px;
@@ -40,12 +41,12 @@
     }
   </style>
 </head>
-<body oncontextmenu="return false;">
+<body>
   <div id="game-container"></div>
   <div class="instructions">
-    <span>LEFT DRAG</span> a plane to the landing approach slope to land. &bull;
-    <span>RIGHT CLICK</span> an approaching plane to order a <span>GO-AROUND</span>. &bull;
-    Don't let fuel hit 0% or planes collide!
+    <span>CLICK & DRAG</span> from any plane to <span>DRAW A FLIGHT PATH</span> leading into the <span>LEFT LANDING ENTRY GATE</span>. &bull;
+    Re-drag at any moment to <span>RE-ROUTE</span> and prevent mid-air collisions! &bull;
+    Watch fuel levels!
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>
