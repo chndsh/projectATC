@@ -1,6 +1,7 @@
 export const PlaneState = Object.freeze({
-  CIRCLING: 'CIRCLING',
-  APPROACHING: 'APPROACHING',
+  CRUISING: 'CRUISING',
+  FOLLOWING_PATH: 'FOLLOWING_PATH',
+  LANDING: 'LANDING',
   LANDED: 'LANDED',
   CRASHED: 'CRASHED',
 });
@@ -11,12 +12,18 @@ export class Plane {
     this.callSign = callSign;
     this.fuel = Math.max(0, fuel);
     this.maxFuel = this.fuel;
-    this.altitude = options.altitude || 100;
-    this.landingDuration = options.landingDuration || (4 + Math.floor(Math.random() * 5)); // 4-8 seconds
-    this.state = PlaneState.CIRCLING;
+
+    // 2D Coordinates & Orientation
+    this.x = options.x !== undefined ? options.x : 100;
+    this.y = options.y !== undefined ? options.y : 100;
+    this.heading = options.heading !== undefined ? options.heading : 0; // In radians
+    this.speed = options.speed || 45; // Pixels per second
+
+    this.state = PlaneState.CRUISING;
     this.timeInFlight = 0;
-    this.landingProgress = 0; // 0.0 to 1.0 (touchdown)
-    this.speed = options.speed || (1 / this.landingDuration); // progress per second
+    this.path = []; // [{x, y}, ...]
+    this.collisionRadius = 20; // 20px radius around plane
+    this.landingRollSpeed = 90; // Once wheels down on runway
   }
 
   burnFuel(amount) {
@@ -28,24 +35,71 @@ export class Plane {
     return this.fuel <= 0;
   }
 
-  startApproach() {
-    this.state = PlaneState.APPROACHING;
-    this.landingProgress = 0;
+  assignPath(points) {
+    if (!points || points.length === 0) return;
+    this.path = points.map(pt => ({ x: pt.x, y: pt.y }));
+    this.state = PlaneState.FOLLOWING_PATH;
   }
 
-  advanceLanding(deltaProgress) {
-    if (this.state !== PlaneState.APPROACHING) return;
-    this.landingProgress = Math.min(1.0, this.landingProgress + deltaProgress);
+  clearPath() {
+    this.path = [];
+    if (this.state === PlaneState.FOLLOWING_PATH) {
+      this.state = PlaneState.CRUISING;
+    }
   }
 
-  touchdown() {
+  hasPath() {
+    return this.path.length > 0;
+  }
+
+  updateMovement(dt) {
+    if (this.state === PlaneState.LANDED || this.state === PlaneState.CRASHED) {
+      return;
+    }
+
+    if (this.state === PlaneState.LANDING) {
+      // Roll along the runway to the right
+      this.heading = 0;
+      this.x += this.landingRollSpeed * dt;
+      return;
+    }
+
+    if (this.path.length > 0) {
+      const target = this.path[0];
+      const dx = target.x - this.x;
+      const dy = target.y - this.y;
+      const dist = Math.hypot(dx, dy);
+
+      // Desired heading angle towards target
+      this.heading = Math.atan2(dy, dx);
+
+      const step = this.speed * dt;
+      if (dist <= step) {
+        // Reached waypoint
+        this.x = target.x;
+        this.y = target.y;
+        this.path.shift();
+
+        if (this.path.length === 0) {
+          this.state = PlaneState.CRUISING;
+        }
+      } else {
+        this.x += Math.cos(this.heading) * step;
+        this.y += Math.sin(this.heading) * step;
+      }
+    } else {
+      // Cruise straight in current heading
+      this.x += Math.cos(this.heading) * this.speed * dt;
+      this.y += Math.sin(this.heading) * this.speed * dt;
+    }
+  }
+
+  startLanding() {
+    this.state = PlaneState.LANDING;
+    this.path = [];
+  }
+
+  finishLanding() {
     this.state = PlaneState.LANDED;
-    this.landingProgress = 1.0;
-  }
-
-  abortLanding(returnAltitude = 120) {
-    this.state = PlaneState.CIRCLING;
-    this.landingProgress = 0;
-    this.altitude = returnAltitude;
   }
 }

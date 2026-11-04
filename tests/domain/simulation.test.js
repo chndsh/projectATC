@@ -1,70 +1,53 @@
 import { describe, it, expect } from 'vitest';
 import { Simulation } from '../../src/domain/Simulation.js';
 
-describe('Simulation Engine', () => {
-  it('initializes with default state and friendly initial spawn rate', () => {
+describe('Simulation Engine with 2D Flight & Path Landing', () => {
+  it('spawns planes from top or right edges with inward heading', () => {
     const sim = new Simulation();
-    const state = sim.getState();
-    expect(state.score).toBe(0);
-    expect(state.combo).toBe(1);
-    expect(state.isGameOver).toBe(false);
-    expect(state.activePlanesCount).toBe(0);
+    const planeTop = sim.spawnPlane({ spawnEdge: 'TOP' });
+    expect(planeTop.y).toBeLessThanOrEqual(20);
+    expect(planeTop.heading).toBeGreaterThan(0); // Heading down
+
+    const planeRight = sim.spawnPlane({ spawnEdge: 'RIGHT' });
+    expect(planeRight.x).toBeGreaterThanOrEqual(780);
+    expect(Math.cos(planeRight.heading)).toBeLessThan(0); // Moving left
   });
 
-  it('spawns planes periodically up to the max cap of 10', () => {
-    const sim = new Simulation({ baseSpawnInterval: 1.0 }); // faster for test
-    sim.update(1.1); // should trigger 1 spawn
-    expect(sim.getState().activePlanesCount).toBe(1);
+  it('detects mid-air proximity collision when planes fly within 26px', () => {
+    const sim = new Simulation({ baseSpawnInterval: 100 });
+    // Spawn two planes right next to each other
+    sim.spawnPlane({ x: 300, y: 200, heading: 0 });
+    sim.spawnPlane({ x: 315, y: 205, heading: Math.PI }); // Distance = 15.8px (< 26px)
 
-    sim.update(1.1); // spawn 2nd
-    expect(sim.getState().activePlanesCount).toBe(2);
-  });
-
-  it('triggers game over when total active planes exceed 10 (overcrowding)', () => {
-    const sim = new Simulation({ baseSpawnInterval: 0.1, maxPlanes: 3 }); // low threshold for test
-    for (let i = 0; i < 4; i++) {
-      sim.update(0.15);
-    }
+    sim.update(0.1);
     expect(sim.getState().isGameOver).toBe(true);
-    expect(sim.getState().gameOverReason).toContain('Overcrowding');
+    expect(sim.getState().gameOverReason).toContain('collision');
   });
 
-  it('triggers game over if fuel drops to 0 while circling or descending', () => {
-    const sim = new Simulation({ baseSpawnInterval: 100 }); // disable auto-spawn
-    const plane = sim.spawnPlane({ fuel: 2 });
-    expect(sim.getState().activePlanesCount).toBe(1);
+  it('triggers landing when a plane path reaches the left landing entry zone', () => {
+    const sim = new Simulation({ baseSpawnInterval: 100 });
+    // Spawn plane above the left landing entry zone (0 <= x <= 130, y ~ 395)
+    const plane = sim.spawnPlane({ x: 80, y: 350 });
+    // User draws path entering runway gate
+    plane.assignPath([
+      { x: 80, y: 395 }, // Target runway gate
+    ]);
 
-    sim.update(3.0); // burns > 2 fuel
+    sim.update(1.2); // Plane moves down and reaches threshold
+    expect(plane.state).toBe('LANDING');
+
+    // Simulate rollout across runway
+    sim.update(10.0);
+    expect(sim.getState().landedCount).toBe(1);
+    expect(sim.getState().score).toBeGreaterThan(15);
+  });
+
+  it('detects fuel burnout in flight causing game over', () => {
+    const sim = new Simulation({ baseSpawnInterval: 100 });
+    sim.spawnPlane({ fuel: 3 });
+
+    sim.update(4.0);
     expect(sim.getState().isGameOver).toBe(true);
     expect(sim.getState().gameOverReason).toContain('fuel');
-  });
-
-  it('allows requesting landing, calculates landing score and increments combo', () => {
-    const sim = new Simulation({ baseSpawnInterval: 100 });
-    const plane = sim.spawnPlane({ fuel: 50, landingDuration: 1.0 });
-
-    const success = sim.requestLanding(plane.id);
-    expect(success).toBe(true);
-    expect(sim.getLandingQueue().size()).toBe(1);
-
-    // After 1.1s, plane should touchdown
-    sim.update(1.1);
-    const state = sim.getState();
-    expect(state.activePlanesCount).toBe(0);
-    expect(state.landedCount).toBe(1);
-    expect(state.score).toBeGreaterThan(10);
-    expect(state.combo).toBe(2);
-  });
-
-  it('supports Go-Around abort command from landing queue', () => {
-    const sim = new Simulation({ baseSpawnInterval: 100 });
-    const plane = sim.spawnPlane({ fuel: 50, landingDuration: 5.0 });
-    sim.requestLanding(plane.id);
-
-    const aborted = sim.abortLanding(plane.id);
-    expect(aborted).toBe(true);
-    expect(sim.getLandingQueue().size()).toBe(0);
-    expect(sim.getAirspace().length).toBe(1);
-    expect(plane.state).toBe('CIRCLING');
   });
 });
