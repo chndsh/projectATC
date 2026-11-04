@@ -61,8 +61,16 @@ export class PlaneSprite extends Phaser.GameObjects.Container {
     this.x = this.plane.x;
     this.y = this.plane.y;
 
-    // Orient sprite along flight heading
-    this.planeImage.setRotation(this.plane.heading);
+    // Orient sprite along flight heading with upright flight visuals:
+    // If heading leftwards (|heading| > PI/2), flip Y so the aircraft is never upside-down
+    const isHeadingLeft = Math.cos(this.plane.heading) < 0;
+    if (isHeadingLeft) {
+      this.planeImage.setFlipY(true);
+      this.planeImage.setRotation(this.plane.heading);
+    } else {
+      this.planeImage.setFlipY(false);
+      this.planeImage.setRotation(this.plane.heading);
+    }
 
     // Update fuel bar
     const fuelPct = Math.max(0, this.plane.fuel / 100);

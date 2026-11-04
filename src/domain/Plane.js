@@ -21,6 +21,7 @@ export class Plane {
 
     this.heading = options.heading !== undefined ? options.heading : Math.PI; // Default westbound (flying left)
     this.speed = options.speed || 45; // Pixels per second
+    this.turnSpeed = options.turnSpeed || 3.0; // Max turn rate in radians/sec for realistic smooth turning
 
     this.state = PlaneState.CRUISING;
     this.timeInFlight = 0;
@@ -96,8 +97,20 @@ export class Plane {
       const dy = target.y - this.y;
       const dist = Math.hypot(dx, dy);
 
-      // Desired heading angle towards target
-      this.heading = Math.atan2(dy, dx);
+      // Desired target heading
+      const desiredHeading = Math.atan2(dy, dx);
+
+      // Smooth realistic angular turn towards desired heading:
+      let diff = desiredHeading - this.heading;
+      while (diff < -Math.PI) diff += 2 * Math.PI;
+      while (diff > Math.PI) diff -= 2 * Math.PI;
+
+      const maxTurn = this.turnSpeed * dt;
+      if (Math.abs(diff) <= maxTurn) {
+        this.heading = desiredHeading;
+      } else {
+        this.heading += Math.sign(diff) * maxTurn;
+      }
 
       const step = this.speed * dt;
       if (dist <= step) {
@@ -123,7 +136,7 @@ export class Plane {
         const verticalStep = Math.sin(this.heading) * this.speed * dt;
 
         if (remainingDescent <= verticalStep || Math.abs(this.y - this.targetAltitude) < 2) {
-          // Reached target altitude! Level off into horizontal cruise
+          // Reached target altitude! Smoothly level off into horizontal cruise
           this.y = this.targetAltitude;
           this.isLevelFlight = true;
           this.heading = Math.cos(this.heading) < 0 ? Math.PI : 0;
@@ -132,7 +145,19 @@ export class Plane {
           this.y += verticalStep;
         }
       } else {
-        // Level flight at constant altitude
+        // Smoothly rotate towards horizontal flight (PI for left, 0 for right)
+        const targetHeading = Math.cos(this.heading) < 0 ? Math.PI : 0;
+        let diff = targetHeading - this.heading;
+        while (diff < -Math.PI) diff += 2 * Math.PI;
+        while (diff > Math.PI) diff -= 2 * Math.PI;
+
+        const maxTurn = this.turnSpeed * dt;
+        if (Math.abs(diff) <= maxTurn) {
+          this.heading = targetHeading;
+        } else {
+          this.heading += Math.sign(diff) * maxTurn;
+        }
+
         this.y = this.targetAltitude;
         this.x += Math.cos(this.heading) * this.speed * dt;
       }

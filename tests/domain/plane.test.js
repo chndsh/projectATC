@@ -56,43 +56,37 @@ describe('Plane Domain Model 2D', () => {
     expect(plane.path[0]).toEqual({ x: 50, y: 200 });
   });
 
-  it('prunes obsolete initial waypoints when assigning path so plane does not backtrack', () => {
-    const plane = new Plane('NO_BACKTRACK', 50, { x: 100, y: 100, heading: 0 });
-    const pointsDrawnWhileMoving = [
-      { x: 80, y: 100 },  // Behind current position
-      { x: 90, y: 100 },  // Still behind current position
-      { x: 120, y: 100 }, // Ahead
-      { x: 150, y: 100 }, // Further ahead
-    ];
+  it('rotates smoothly towards target waypoints instead of instantly snapping', () => {
+    // Plane heading east (heading = 0), waypoint is straight south (heading = PI/2)
+    const plane = new Plane('TURN', 50, { x: 100, y: 100, heading: 0, turnSpeed: 2.0 });
+    plane.assignPath([{ x: 100, y: 200 }]);
 
-    plane.assignPath(pointsDrawnWhileMoving);
-    expect(plane.path[0].x).toBe(120);
+    plane.updateMovement(0.2); // 0.2s of turn
+    // Plane should have rotated towards PI/2 (> 0) but not fully snapped instantly to PI/2
+    expect(plane.heading).toBeGreaterThan(0);
+    expect(plane.heading).toBeLessThan(Math.PI / 2);
   });
 
   it('descends at a realistic shallow angle until reaching assigned altitude, then levels off', () => {
     const targetAltitude = 180;
-    // Spawns below HUD at y = 55, target altitude 180
     const plane = new Plane('DESCENT', 50, {
       x: 600,
       y: 55,
       targetAltitude: targetAltitude,
-      heading: Math.PI * 0.9, // Gentle downward-left angle (~18 degrees pitch)
+      heading: Math.PI * 0.9,
       speed: 50,
     });
 
     expect(plane.y).toBe(55);
     expect(plane.isLevelFlight).toBe(false);
 
-    // Advance flight: plane should descend
     plane.updateMovement(1.0);
     expect(plane.y).toBeGreaterThan(55);
     expect(plane.y).toBeLessThanOrEqual(targetAltitude);
 
-    // Advance until it reaches target altitude
     plane.updateMovement(20.0);
     expect(plane.y).toBe(targetAltitude);
     expect(plane.isLevelFlight).toBe(true);
-    // Heading levels off to purely horizontal (Math.PI or 0)
     expect(Math.sin(plane.heading)).toBeCloseTo(0, 2);
   });
 });

@@ -2,7 +2,7 @@ import { Plane, PlaneState } from './Plane.js';
 
 export class Simulation {
   constructor(options = {}) {
-    this.maxPlanes = options.maxPlanes || 10;
+    this.maxPlanes = options.maxPlanes || Infinity; // No arbitrary cap on active planes!
     this.baseSpawnInterval = options.baseSpawnInterval !== undefined ? options.baseSpawnInterval : 6.5;
     this.minSpawnInterval = options.minSpawnInterval !== undefined ? options.minSpawnInterval : 3.0;
     this.spawnTimer = 0;
@@ -99,11 +99,6 @@ export class Simulation {
     });
 
     this.planes.push(plane);
-
-    if (this.planes.length > this.maxPlanes) {
-      this.triggerGameOver(`Overcrowding: More than ${this.maxPlanes} aircraft active!`);
-    }
-
     return plane;
   }
 

@@ -6,14 +6,21 @@ describe('Simulation Engine with Graceful Ingress & Airspace Circulation', () =>
     const sim = new Simulation();
     for (let i = 0; i < 20; i++) {
       const plane = sim.spawnPlane();
-      // Must ALWAYS be below the top HUD dashboard (y > 45)
       expect(plane.y).toBeGreaterThanOrEqual(52);
       expect(plane.y).toBeLessThan(350);
-      // Ingress heading must be a shallow realistic forward glide, NOT straight down
-      // Vertical pitch must be gentle (sin(heading) between 0 and 0.4)
       expect(Math.sin(plane.heading)).toBeGreaterThanOrEqual(0);
       expect(Math.sin(plane.heading)).toBeLessThanOrEqual(0.45);
     }
+  });
+
+  it('allows active planes count to exceed 10 without overcrowding game over', () => {
+    const sim = new Simulation({ baseSpawnInterval: 0.1 });
+    // Spawn 14 planes
+    for (let i = 0; i < 14; i++) {
+      sim.spawnPlane({ x: 50 * i + 50, y: 100 + (i % 4) * 40 });
+    }
+    expect(sim.getState().activePlanesCount).toBe(14);
+    expect(sim.getState().isGameOver).toBe(false);
   });
 
   it('cycles planes around screen edges cleanly without getting stuck', () => {
@@ -22,11 +29,10 @@ describe('Simulation Engine with Graceful Ingress & Airspace Circulation', () =>
       x: 20,
       y: 180,
       targetAltitude: 180,
-      heading: Math.PI, // Flying left towards edge
+      heading: Math.PI,
     });
 
-    sim.update(1.0); // Hits left edge
-    // When plane passes left edge, it loops and re-enters from right edge at a safe altitude
+    sim.update(1.0);
     expect(plane.x).toBeGreaterThan(700);
     expect(plane.y).toBeGreaterThanOrEqual(80);
   });
