@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Air Traffic Controller — Retro Web Edition</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: #0f172a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Courier New', Courier, monospace;
+      color: #e2e8f0;
+      overflow: hidden;
+    }
+    #game-container {
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .instructions {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #94a3b8;
+      text-align: center;
+      line-height: 1.5;
+    }
+    .instructions span {
+      color: #38bdf8;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body oncontextmenu="return false;">
+  <div id="game-container"></div>
+  <div class="instructions">
+    <span>LEFT DRAG</span> a plane to the landing approach slope to land. &bull;
+    <span>RIGHT CLICK</span> an approaching plane to order a <span>GO-AROUND</span>. &bull;
+    Don't let fuel hit 0% or planes collide!
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
