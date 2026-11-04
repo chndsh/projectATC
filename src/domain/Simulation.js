@@ -46,22 +46,17 @@ export class Simulation {
     const callSign = overrides.callSign || this.generateCallSign();
     const fuel = overrides.fuel !== undefined ? overrides.fuel : (30 + Math.floor(Math.random() * 50));
 
-    // Choose spawn edge: TOP or RIGHT
-    const edge = overrides.spawnEdge || (Math.random() < 0.5 ? 'TOP' : 'RIGHT');
-    let x, y, heading;
+    // Spawn strictly from the RIGHT edge, never from the top or on the HUD dashboard
+    // Screen height is 450, HUD is y: 0 to 45, runway is y: 390+
+    // Active airspace corridors: y between 80 and 340
+    const availableAltitudes = [90, 140, 190, 240, 290, 330];
+    const y = overrides.y !== undefined
+      ? overrides.y
+      : availableAltitudes[Math.floor(Math.random() * availableAltitudes.length)];
 
-    if (edge === 'TOP') {
-      x = overrides.x !== undefined ? overrides.x : (100 + Math.floor(Math.random() * 600));
-      y = overrides.y !== undefined ? overrides.y : 15;
-      // Heading down-left or down-right (between 0.4*PI and 0.6*PI)
-      heading = overrides.heading !== undefined ? overrides.heading : (Math.PI * 0.35 + Math.random() * Math.PI * 0.3);
-    } else {
-      // RIGHT edge
-      x = overrides.x !== undefined ? overrides.x : 785;
-      y = overrides.y !== undefined ? overrides.y : (50 + Math.floor(Math.random() * 260));
-      // Heading westward / southwest (between 0.9*PI and 1.1*PI)
-      heading = overrides.heading !== undefined ? overrides.heading : (Math.PI * 0.9 + Math.random() * Math.PI * 0.2);
-    }
+    const x = overrides.x !== undefined ? overrides.x : 785;
+    // Ingress heading is westbound (flying left towards airspace)
+    const heading = overrides.heading !== undefined ? overrides.heading : Math.PI;
 
     const plane = new Plane(callSign, fuel, {
       x,
@@ -145,12 +140,15 @@ export class Simulation {
           this.landedPlanes.push(plane);
         }
 
-        // Soft screen bounce for unassigned cruising planes so they stay in bounds
+        // Wrap or reverse horizontally for unassigned planes at constant altitude so they loop cleanly in airspace
         if (!plane.hasPath() && plane.state === PlaneState.CRUISING) {
-          if (plane.x < 25) { plane.x = 25; plane.heading = Math.PI - plane.heading; }
-          if (plane.x > 780) { plane.x = 780; plane.heading = Math.PI - plane.heading; }
-          if (plane.y < 25) { plane.y = 25; plane.heading = -plane.heading; }
-          if (plane.y > 360) { plane.y = 360; plane.heading = -plane.heading; }
+          if (plane.x < 30) {
+            plane.x = 30;
+            plane.heading = 0; // Turn right
+          } else if (plane.x > 770) {
+            plane.x = 770;
+            plane.heading = Math.PI; // Turn left
+          }
         }
       }
     }

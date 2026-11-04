@@ -2,21 +2,24 @@ import { describe, it, expect } from 'vitest';
 import { Simulation } from '../../src/domain/Simulation.js';
 
 describe('Simulation Engine with 2D Flight & Path Landing', () => {
-  it('spawns planes from top or right edges with inward heading', () => {
+  it('spawns planes strictly from the right side and below the HUD dashboard', () => {
     const sim = new Simulation();
-    const planeTop = sim.spawnPlane({ spawnEdge: 'TOP' });
-    expect(planeTop.y).toBeLessThanOrEqual(20);
-    expect(planeTop.heading).toBeGreaterThan(0); // Heading down
-
-    const planeRight = sim.spawnPlane({ spawnEdge: 'RIGHT' });
-    expect(planeRight.x).toBeGreaterThanOrEqual(780);
-    expect(Math.cos(planeRight.heading)).toBeLessThan(0); // Moving left
+    for (let i = 0; i < 15; i++) {
+      const plane = sim.spawnPlane();
+      // Must spawn from the right edge
+      expect(plane.x).toBeGreaterThanOrEqual(780);
+      // Must NEVER spawn in top HUD area (y < 60) or from top edge
+      expect(plane.y).toBeGreaterThanOrEqual(80);
+      expect(plane.y).toBeLessThanOrEqual(340);
+      // Heading should be westbound (heading left: Math.PI)
+      expect(Math.cos(plane.heading)).toBeLessThan(0);
+    }
   });
 
   it('detects mid-air proximity collision when planes fly within 26px', () => {
     const sim = new Simulation({ baseSpawnInterval: 100 });
     // Spawn two planes right next to each other
-    sim.spawnPlane({ x: 300, y: 200, heading: 0 });
+    sim.spawnPlane({ x: 300, y: 200, heading: Math.PI });
     sim.spawnPlane({ x: 315, y: 205, heading: Math.PI }); // Distance = 15.8px (< 26px)
 
     sim.update(0.1);
@@ -26,7 +29,7 @@ describe('Simulation Engine with 2D Flight & Path Landing', () => {
 
   it('triggers landing when a plane path reaches the left landing entry zone and stops fuel burn', () => {
     const sim = new Simulation({ baseSpawnInterval: 100 });
-    // Spawn plane above the left landing entry zone (0 <= x <= 130, y ~ 395)
+    // Spawn plane above the left landing entry zone (0 <= x <= 140, y ~ 395)
     const plane = sim.spawnPlane({ x: 80, y: 350, fuel: 50 });
     // User draws path entering runway gate
     plane.assignPath([

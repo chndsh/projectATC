@@ -16,9 +16,9 @@ export class Plane {
     // 2D Coordinates & Orientation
     this.x = options.x !== undefined ? options.x : 100;
     this.y = options.y !== undefined ? options.y : 100;
-    this.heading = options.heading !== undefined ? options.heading : 0; // In radians
+    this.altitude = this.y; // Designated holding altitude
+    this.heading = options.heading !== undefined ? options.heading : Math.PI; // Default westbound (flying left)
     this.speed = options.speed || 45; // Pixels per second
-    this.turnRate = options.turnRate || 0.45; // Angular turn rate for circling in radians/sec
 
     this.state = PlaneState.CRUISING;
     this.timeInFlight = 0;
@@ -40,9 +40,8 @@ export class Plane {
     if (!points || points.length === 0) return;
 
     // Eliminate backtracking:
-    // When a player draws a path, the aircraft continues flying.
-    // Only prune if there are multiple waypoints and the initial points are behind the current position
-    // or within immediate proximity (dist < 15).
+    // When a player finishes drawing a path, drop points that are behind the aircraft's current live location
+    // or within immediate proximity (dist <= 15).
     let startIndex = 0;
     while (startIndex < points.length - 1) {
       const pt = points[startIndex];
@@ -50,10 +49,11 @@ export class Plane {
       const dy = pt.y - this.y;
       const dist = Math.hypot(dx, dy);
 
-      // Check if point is behind aircraft relative to its flight vector
+      // In the plane's flight heading frame, check if waypoint is behind plane or very close
+      // Note: for a plane moving left (heading = Math.PI), cos(PI) = -1.
       const forwardDot = dx * Math.cos(this.heading) + dy * Math.sin(this.heading);
 
-      if (dist < 15 || forwardDot < 0) {
+      if (dist <= 15 || forwardDot < -5) {
         startIndex++;
       } else {
         break;
@@ -114,14 +114,10 @@ export class Plane {
         this.y += Math.sin(this.heading) * step;
       }
     } else {
-      // Circle around in airspace (gentle constant turn rate)
-      this.heading += this.turnRate * dt;
-      // Keep heading normalized between -PI and PI
-      if (this.heading > Math.PI) this.heading -= 2 * Math.PI;
-      if (this.heading < -Math.PI) this.heading += 2 * Math.PI;
-
+      // Hold at constant assigned altitude when unassigned:
+      // Fly along its current heading at its fixed altitude y level
+      this.y = this.altitude;
       this.x += Math.cos(this.heading) * this.speed * dt;
-      this.y += Math.sin(this.heading) * this.speed * dt;
     }
   }
 

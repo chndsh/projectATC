@@ -24,7 +24,7 @@ describe('Plane Domain Model 2D', () => {
   });
 
   it('assigns custom waypoints and follows them step by step', () => {
-    const plane = new Plane('PATH', 50, { x: 100, y: 100, speed: 50 });
+    const plane = new Plane('PATH', 50, { x: 100, y: 100, heading: 0, speed: 50 });
     const points = [
       { x: 150, y: 100 },
       { x: 150, y: 150 },
@@ -57,26 +57,32 @@ describe('Plane Domain Model 2D', () => {
   });
 
   it('prunes obsolete initial waypoints when assigning path so plane does not backtrack', () => {
-    // Plane is at (100, 100), but path drawing started half a second ago when plane was at (80, 100)
-    const plane = new Plane('NO_BACKTRACK', 50, { x: 100, y: 100 });
+    const plane = new Plane('NO_BACKTRACK', 50, { x: 100, y: 100, heading: 0 });
     const pointsDrawnWhileMoving = [
-      { x: 80, y: 100 },  // Old starting point, behind current position
+      { x: 80, y: 100 },  // Behind current position
       { x: 90, y: 100 },  // Still behind current position
       { x: 120, y: 100 }, // Ahead
       { x: 150, y: 100 }, // Further ahead
     ];
 
     plane.assignPath(pointsDrawnWhileMoving);
-    // Initial waypoints behind or right next to plane should be culled
     expect(plane.path[0].x).toBe(120);
   });
 
-  it('circles around in an orbit when unassigned', () => {
-    const plane = new Plane('CIRCLE', 50, { x: 400, y: 200, heading: 0, speed: 50 });
-    const initialHeading = plane.heading;
-    // Update movement for 1 second without path
+  it('maintains constant altitude when cruising without assigned path', () => {
+    const targetAltitude = 160;
+    const plane = new Plane('ALTITUDE_HOLD', 50, {
+      x: 700,
+      y: targetAltitude,
+      heading: Math.PI, // Flying left
+      speed: 40,
+    });
+
+    // Update movement across multiple seconds
     plane.updateMovement(1.0);
-    // Heading should smoothly turn (angular velocity) rather than moving in an endless straight bounce
-    expect(plane.heading).not.toBe(initialHeading);
+    expect(plane.y).toBe(targetAltitude);
+
+    plane.updateMovement(2.0);
+    expect(plane.y).toBe(targetAltitude);
   });
 });
