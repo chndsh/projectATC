@@ -1,16 +1,18 @@
-## Session Decisions & Task Log (2026-11-04 - Flight Control Path Drawing Update)
+## Session Decisions & Task Log (2026-11-04 - Movement & Fuel Mechanics Refinement)
 
-### Decisions Made:
-1. **End-to-End Ground Runway**: Replaced the partial runway with an 800px full-width runway spanning the entire bottom of the screen with a marked **Landing Entry Gate on the far left** (x: 0 to 130).
-2. **Interactive Flight Path Drawing (Flight Control Style)**:
-   - Players click/drag from any plane to draw a custom trajectory line.
-   - Drawing into the left landing entry gate transitions the plane into landing touchdown and rollout.
-3. **Dynamic Re-routing**:
-   - Players can click and redraw a plane's flight path at any time mid-flight to avoid mid-air collisions or prioritize low-fuel aircraft.
-4. **Spawn Ingress**: Planes enter into airspace from the **Top** (flying downward) or the **Right** (flying westward).
-5. **2D Proximity Collisions**: Mid-air collision triggers if any two airborne planes come within 26px radius.
-6. **Continuous Fuel Burn**: Fuel ticks down constantly with audible alarms and flashing red alerts below 20%.
+### Issues Addressed & Root Causes:
+1. **Fuel Counter Burning During Runway Rollout**:
+   - *Root cause*: Simulation was draining fuel for all planes where `state !== LANDED`. Since planes were in `LANDING` state while rolling across the runway, fuel kept depleting until exit.
+   - *Fix*: Made fuel depletion conditional strictly on `state !== LANDING && state !== LANDED`. As soon as the wheels touch down in the landing threshold, fuel consumption completely freezes.
+
+2. **Unassigned Planes Circling Behavior**:
+   - *Root cause*: Unassigned planes previously flew straight until hitting screen edges and reflecting via a sharp bounce.
+   - *Fix*: Added an angular turn rate (`turnRate = 0.45 rad/sec`) in `Plane.js` so unassigned planes continuously orbit smoothly in airspace holding patterns.
+
+3. **Path Drawing Backtracking Glitch**:
+   - *Root cause*: When the user starts clicking and dragging from a moving plane, the aircraft continues advancing during the drawing motion. By the time pointer release occurred, the initial waypoints recorded at the beginning of the stroke were behind the aircraft's current position, forcing the plane to turn around and backtrack to the obsolete starting point.
+   - *Fix*: In `Plane.assignPath()`, we added vector-relative filtering that automatically culls starting points that the aircraft has already passed (negative dot product along heading) or that are within immediate proximity, seamlessly attaching the plane's live coordinates to the forward path.
 
 ### Verification:
-- All unit tests passing in Vitest (`tests/domain/plane.test.js`, `tests/domain/simulation.test.js`).
-- Static production build verified (`npm run build`).
+- All unit tests passing: 10/10 in Vitest (`tests/domain/plane.test.js`, `tests/domain/simulation.test.js`).
+- Production static bundle builds cleanly without errors (`dist/`).
