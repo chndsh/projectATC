@@ -1,18 +1,18 @@
-## Session Decisions & Task Log (2026-11-04 - Movement & Fuel Mechanics Refinement)
+## Session Decisions & Task Log (2026-11-04 - Ingress & Altitude Holding Refinement)
 
 ### Issues Addressed & Root Causes:
-1. **Fuel Counter Burning During Runway Rollout**:
-   - *Root cause*: Simulation was draining fuel for all planes where `state !== LANDED`. Since planes were in `LANDING` state while rolling across the runway, fuel kept depleting until exit.
-   - *Fix*: Made fuel depletion conditional strictly on `state !== LANDING && state !== LANDED`. As soon as the wheels touch down in the landing threshold, fuel consumption completely freezes.
+1. **Planes Appearing from Top or on Top of HUD Dashboard**:
+   - *Root cause*: `Simulation.spawnPlane()` was randomly picking between `'TOP'` and `'RIGHT'` edge spawning. Top spawning was placing aircraft at `y = 15`, right on top of the top HUD bar (which is 40px tall: `y = 0 to 45`).
+   - *Fix*: Removed top spawning entirely. All aircraft now spawn strictly from the **Right Edge** (`x >= 785`) and enter along clear corridors well below the HUD (`y` between 90 and 330), heading westward into airspace.
 
-2. **Unassigned Planes Circling Behavior**:
-   - *Root cause*: Unassigned planes previously flew straight until hitting screen edges and reflecting via a sharp bounce.
-   - *Fix*: Added an angular turn rate (`turnRate = 0.45 rad/sec`) in `Plane.js` so unassigned planes continuously orbit smoothly in airspace holding patterns.
+2. **Unassigned Planes Trajectory Behavior**:
+   - *Root cause*: Previous fix added a circular turn rate that caused planes to loop in circles.
+   - *Fix*: Replaced circular trajectory with **constant assigned altitude holding**. When a plane has no path assigned, it maintains its fixed altitude flight level (`y = altitude`), cruising horizontally back and forth across its assigned corridor until guided by the player.
 
-3. **Path Drawing Backtracking Glitch**:
-   - *Root cause*: When the user starts clicking and dragging from a moving plane, the aircraft continues advancing during the drawing motion. By the time pointer release occurred, the initial waypoints recorded at the beginning of the stroke were behind the aircraft's current position, forcing the plane to turn around and backtrack to the obsolete starting point.
-   - *Fix*: In `Plane.assignPath()`, we added vector-relative filtering that automatically culls starting points that the aircraft has already passed (negative dot product along heading) or that are within immediate proximity, seamlessly attaching the plane's live coordinates to the forward path.
+3. **Fuel Freeze & Backtracking Validation**:
+   - Preserved instant fuel freeze on runway gate contact.
+   - Tested and verified backtrack culling and path assignment.
 
 ### Verification:
 - All unit tests passing: 10/10 in Vitest (`tests/domain/plane.test.js`, `tests/domain/simulation.test.js`).
-- Production static bundle builds cleanly without errors (`dist/`).
+- Production bundle compiled with `npm run build` into `dist/`.
