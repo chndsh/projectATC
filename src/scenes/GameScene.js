@@ -3,6 +3,7 @@ import { Simulation } from '../domain/Simulation.js';
 import { PlaneSprite } from '../ui/PlaneSprite.js';
 import { HUD } from '../ui/HUD.js';
 import { SoundEffects } from '../audio/SoundEffects.js';
+import { CustomizationManager } from '../ui/CustomizationManager.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -12,9 +13,22 @@ export class GameScene extends Phaser.Scene {
   create() {
     this.sim = new Simulation();
     this.planeSprites = new Map(); // planeId -> PlaneSprite
+    this.currentPlaneTextureKey = CustomizationManager.selectedPlane || 'plane';
 
     // Sky Background gradient
-    this.skyBg = this.add.rectangle(400, 225, 800, 450, 0x0c4a6e);
+    this.skyBg = this.add.rectangle(400, 225, 800, 450, 0x0c4a6e).setDepth(-20);
+
+    // Custom / Preset Background Image (layers directly over skyBg)
+    this.bgSprite = this.add.image(400, 225, 'bg-night-radar')
+      .setDisplaySize(800, 450)
+      .setDepth(-10)
+      .setVisible(false);
+
+    // Restore any custom textures saved in storage
+    CustomizationManager.restoreCustomTextures(this);
+
+    // Apply active background preference
+    this.applyBackground(CustomizationManager.selectedBackground || 'default');
 
     // Decorative clouds drifting in background
     this.clouds = [];
@@ -22,14 +36,15 @@ export class GameScene extends Phaser.Scene {
       const c = this.add.image(Phaser.Math.Between(40, 750), Phaser.Math.Between(40, 260), 'cloud');
       c.setAlpha(0.25);
       c.setScale(Phaser.Math.FloatBetween(1.0, 1.8));
+      c.setDepth(-5);
       this.clouds.push(c);
     }
 
     // Runway (Full width 800px along bottom: y: 415)
-    this.runway = this.add.image(400, 415, 'runway').setOrigin(0.5, 0.5);
+    this.runway = this.add.image(400, 415, 'runway').setOrigin(0.5, 0.5).setDepth(1);
 
     // Left Gate Landing Marker (Visual landing threshold box)
-    this.gateZoneMarker = this.add.rectangle(65, 415, 120, 40);
+    this.gateZoneMarker = this.add.rectangle(65, 415, 120, 40).setDepth(2);
     this.gateZoneMarker.setStrokeStyle(2, 0x38bdf8, 0.8);
 
     this.gateText = this.add.text(65, 380, '▼ LANDING ENTRY ▼', {
@@ -39,10 +54,10 @@ export class GameScene extends Phaser.Scene {
       fontStyle: 'bold',
       backgroundColor: '#0f172a99',
       padding: { x: 3, y: 2 },
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(2);
 
     // Dynamic Flight Path Graphics layer
-    this.pathGraphics = this.add.graphics();
+    this.pathGraphics = this.add.graphics().setDepth(5);
 
     // HUD Header
     this.hud = new HUD(this);
@@ -83,6 +98,30 @@ export class GameScene extends Phaser.Scene {
 
     // Spawn 1 initial plane for instant action
     this.sim.spawnPlane();
+  }
+
+  applyBackground(bgKey) {
+    if (!this.bgSprite || !this.skyBg) return;
+
+    if (bgKey === 'default') {
+      this.skyBg.setVisible(true);
+      this.bgSprite.setVisible(false);
+      this.clouds.forEach(c => c.setVisible(true));
+    } else if (this.textures.exists(bgKey)) {
+      this.skyBg.setVisible(false);
+      this.bgSprite.setTexture(bgKey);
+      this.bgSprite.setDisplaySize(800, 450);
+      this.bgSprite.setVisible(true);
+      // Keep clouds visible with gentle drift over the custom background
+      this.clouds.forEach(c => c.setVisible(true));
+    }
+  }
+
+  applyPlaneTexture(planeKey) {
+    this.currentPlaneTextureKey = planeKey;
+    for (const sprite of this.planeSprites.values()) {
+      sprite.setPlaneTexture(planeKey);
+    }
   }
 
   startPathDrawing(plane) {

@@ -89,4 +89,36 @@ describe('Plane Domain Model 2D', () => {
     expect(plane.isLevelFlight).toBe(true);
     expect(Math.sin(plane.heading)).toBeCloseTo(0, 2);
   });
+
+  it('does not get stuck infinitely orbiting waypoints drawn within its turning radius', () => {
+    // Plane heading east (0), waypoint placed at 90 degrees south, 20px away (previously stuck in infinite orbit)
+    const plane = new Plane('ORBIT_PREVENT', 100, {
+      x: 200,
+      y: 200,
+      heading: 0,
+      speed: 45,
+      turnSpeed: 3.0,
+    });
+
+    plane.assignPath([
+      { x: 200 + 20 * Math.cos(1.2), y: 200 + 20 * Math.sin(1.2) },
+      { x: 400, y: 400 },
+    ]);
+
+    let totalAngleTurned = 0;
+    let prevHeading = plane.heading;
+    for (let f = 0; f < 600; f++) {
+      plane.updateMovement(0.016);
+      let diff = plane.heading - prevHeading;
+      while (diff < -Math.PI) diff += 2 * Math.PI;
+      while (diff > Math.PI) diff -= 2 * Math.PI;
+      totalAngleTurned += Math.abs(diff);
+      prevHeading = plane.heading;
+    }
+
+    const revolutions = totalAngleTurned / (2 * Math.PI);
+    // Should smoothly follow through and NOT continuously rotate on and on (revolutions < 1.5)
+    expect(revolutions).toBeLessThan(1.5);
+    expect(plane.path.length).toBe(0);
+  });
 });

@@ -112,9 +112,16 @@ export class Plane {
         this.heading += Math.sign(diff) * maxTurn;
       }
 
+      // Normalize heading within [-PI, PI]
+      while (this.heading > Math.PI) this.heading -= 2 * Math.PI;
+      while (this.heading < -Math.PI) this.heading += 2 * Math.PI;
+
       const step = this.speed * dt;
+      const waypointRadius = this.path.length > 1 ? 16 : Math.max(12, step);
+      const forwardProj = dx * Math.cos(this.heading) + dy * Math.sin(this.heading);
+
+      // Reached waypoint: exact step, arrival radius, or passed/overshot in close proximity
       if (dist <= step) {
-        // Reached waypoint
         this.x = target.x;
         this.y = target.y;
         this.path.shift();
@@ -124,6 +131,16 @@ export class Plane {
           this.targetAltitude = this.y;
           this.isLevelFlight = true;
         }
+      } else if (dist <= waypointRadius || (dist <= 22 && forwardProj < 0)) {
+        this.path.shift();
+
+        if (this.path.length === 0) {
+          this.state = PlaneState.CRUISING;
+          this.targetAltitude = this.y;
+          this.isLevelFlight = true;
+        }
+        this.x += Math.cos(this.heading) * step;
+        this.y += Math.sin(this.heading) * step;
       } else {
         this.x += Math.cos(this.heading) * step;
         this.y += Math.sin(this.heading) * step;
@@ -157,6 +174,9 @@ export class Plane {
         } else {
           this.heading += Math.sign(diff) * maxTurn;
         }
+
+        while (this.heading > Math.PI) this.heading -= 2 * Math.PI;
+        while (this.heading < -Math.PI) this.heading += 2 * Math.PI;
 
         this.y = this.targetAltitude;
         this.x += Math.cos(this.heading) * this.speed * dt;

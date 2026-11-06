@@ -5,8 +5,10 @@ export class PlaneSprite extends Phaser.GameObjects.Container {
     super(scene, plane.x, plane.y);
     this.plane = plane;
 
-    // Sprite image
-    this.planeImage = scene.add.image(0, 0, 'plane');
+    // Sprite image (uses active scene texture preference or 'plane')
+    const textureKey = scene.currentPlaneTextureKey || 'plane';
+    this.planeImage = scene.add.image(0, 0, textureKey);
+    this.adjustScale();
     this.add(this.planeImage);
 
     // Callsign Label
@@ -54,6 +56,25 @@ export class PlaneSprite extends Phaser.GameObjects.Container {
     });
 
     scene.add.existing(this);
+  }
+
+  setPlaneTexture(textureKey) {
+    if (this.planeImage && this.scene && this.scene.textures.exists(textureKey)) {
+      this.planeImage.setTexture(textureKey);
+      this.adjustScale();
+    }
+  }
+
+  adjustScale() {
+    if (!this.planeImage) return;
+    const baseW = this.planeImage.width;
+    const baseH = this.planeImage.height;
+    if (baseW > 0 && baseH > 0) {
+      const targetW = 38;
+      const targetH = 26;
+      const scale = Math.min(targetW / baseW, targetH / baseH, 1.2);
+      this.planeImage.setScale(scale);
+    }
   }
 
   updateVisuals(time) {
