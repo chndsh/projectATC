@@ -397,25 +397,25 @@ export class AssetGenerator {
     ctx.fillStyle = '#1e293b';
     ctx.fillRect(0, 0, 800, 45);
 
-    // Top grass border
-    ctx.fillStyle = '#15803d';
+    // Top grass border (Stardew lush green)
+    ctx.fillStyle = '#4a7c59';
     ctx.fillRect(0, 0, 800, 3);
     // Bottom grass border
     ctx.fillRect(0, 42, 800, 3);
 
     // Far Left Entry Threshold (Yellow chevron / piano keys)
-    ctx.fillStyle = '#eab308';
+    ctx.fillStyle = '#e8c56a';
     ctx.fillRect(6, 4, 8, 37);
     ctx.fillRect(20, 4, 6, 37);
 
     // White piano key runway numbers / markers at left gate
-    ctx.fillStyle = '#f8fafc';
+    ctx.fillStyle = '#f5e6c8';
     for (let y = 6; y <= 36; y += 6) {
       ctx.fillRect(32, y, 20, 3);
     }
 
     // Left threshold guide text / arrow in threshold
-    ctx.fillStyle = '#38bdf8';
+    ctx.fillStyle = '#e8c56a';
     ctx.fillRect(60, 21, 24, 3);
     ctx.fillRect(78, 17, 3, 11);
 

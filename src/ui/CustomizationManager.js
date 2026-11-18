@@ -1,6 +1,8 @@
+import { SoundEffects } from '../audio/SoundEffects.js';
+
 /**
  * CustomizationManager manages custom background images, plane sprites,
- * presets, file uploads, and localStorage persistence.
+ * presets, file uploads, audio settings, and localStorage persistence.
  */
 export const CustomizationManager = {
   // Current settings
@@ -10,6 +12,8 @@ export const CustomizationManager = {
   selectedPlane: 'plane', // 'plane' | 'plane-concorde' | 'plane-propeller' | 'plane-stealth' | 'plane-custom'
   planeOrientation: 'right', // 'right' | 'up' | 'left'
   customPlaneDataUrl: null,
+
+  soundMuted: false,
 
   // Reference to Phaser game instance and active GameScene
   game: null,
@@ -26,14 +30,34 @@ export const CustomizationManager = {
 
   loadFromStorage() {
     try {
+      if (typeof localStorage === 'undefined') return;
       const data = localStorage.getItem('atc_customization_settings');
       if (data) {
         const parsed = JSON.parse(data);
-        if (parsed.selectedBackground) this.selectedBackground = parsed.selectedBackground;
-        if (parsed.customBgDataUrl) this.customBgDataUrl = parsed.customBgDataUrl;
-        if (parsed.selectedPlane) this.selectedPlane = parsed.selectedPlane;
+
+        // Background: only allow 'bg-custom' if valid data URL is present
+        if (parsed.customBgDataUrl) {
+          this.customBgDataUrl = parsed.customBgDataUrl;
+          this.selectedBackground = parsed.selectedBackground || 'default';
+        } else {
+          this.customBgDataUrl = null;
+          this.selectedBackground = (parsed.selectedBackground === 'bg-custom') ? 'default' : (parsed.selectedBackground || 'default');
+        }
+
+        // Plane: only allow 'plane-custom' if valid data URL is present
+        if (parsed.customPlaneDataUrl) {
+          this.customPlaneDataUrl = parsed.customPlaneDataUrl;
+          this.selectedPlane = parsed.selectedPlane || 'plane';
+        } else {
+          this.customPlaneDataUrl = null;
+          this.selectedPlane = (parsed.selectedPlane === 'plane-custom') ? 'plane' : (parsed.selectedPlane || 'plane');
+        }
+
         if (parsed.planeOrientation) this.planeOrientation = parsed.planeOrientation;
-        if (parsed.customPlaneDataUrl) this.customPlaneDataUrl = parsed.customPlaneDataUrl;
+        if (parsed.soundMuted !== undefined) {
+          this.soundMuted = parsed.soundMuted;
+          SoundEffects.isMuted = this.soundMuted;
+        }
       }
     } catch (e) {
       console.warn('CustomizationManager: Could not load saved settings from localStorage', e);
@@ -42,16 +66,24 @@ export const CustomizationManager = {
 
   saveToStorage() {
     try {
+      if (typeof localStorage === 'undefined') return;
       localStorage.setItem('atc_customization_settings', JSON.stringify({
         selectedBackground: this.selectedBackground,
         customBgDataUrl: this.customBgDataUrl,
         selectedPlane: this.selectedPlane,
         planeOrientation: this.planeOrientation,
         customPlaneDataUrl: this.customPlaneDataUrl,
+        soundMuted: this.soundMuted,
       }));
     } catch (e) {
       console.warn('CustomizationManager: Could not save settings to localStorage (quota exceeded?)', e);
     }
+  },
+
+  setSoundMuted(muted) {
+    this.soundMuted = muted;
+    SoundEffects.isMuted = muted;
+    this.saveToStorage();
   },
 
   // Called during Scene Boot or GameScene create to ensure textures are ready
@@ -89,6 +121,9 @@ export const CustomizationManager = {
   // --- Background handlers ---
 
   setBackground(bgKey) {
+    if (bgKey === 'bg-custom' && !this.customBgDataUrl) {
+      bgKey = 'default';
+    }
     this.selectedBackground = bgKey;
     this.saveToStorage();
 
@@ -151,6 +186,9 @@ export const CustomizationManager = {
   // --- Plane handlers ---
 
   setPlanePreset(planeKey) {
+    if (planeKey === 'plane-custom' && !this.customPlaneDataUrl) {
+      planeKey = 'plane';
+    }
     this.selectedPlane = planeKey;
     this.saveToStorage();
 
@@ -259,3 +297,6 @@ export const CustomizationManager = {
     }
   },
 };
+
+// Automatically initialize storage state on module load
+CustomizationManager.loadFromStorage();

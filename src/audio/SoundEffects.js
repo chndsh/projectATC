@@ -1,6 +1,9 @@
 // Synthesizes retro chiptune tones and sound effects using Web Audio API
 export class SoundEffects {
+  static isMuted = false;
+
   static init() {
+    if (this.isMuted) return;
     if (!this.ctx) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
@@ -13,6 +16,7 @@ export class SoundEffects {
   }
 
   static playTouchdown() {
+    if (this.isMuted) return;
     this.init();
     if (!this.ctx) return;
 
@@ -35,6 +39,7 @@ export class SoundEffects {
   }
 
   static playLowFuelBeep() {
+    if (this.isMuted) return;
     this.init();
     if (!this.ctx) return;
 
@@ -56,6 +61,7 @@ export class SoundEffects {
   }
 
   static playGoAround() {
+    if (this.isMuted) return;
     this.init();
     if (!this.ctx) return;
 
@@ -78,6 +84,8 @@ export class SoundEffects {
   }
 
   static playExplosion() {
+    if (this.isMuted) return;
+    this.init();
     this.init();
     if (!this.ctx) return;
 

@@ -21,7 +21,7 @@ export class Plane {
 
     this.heading = options.heading !== undefined ? options.heading : Math.PI; // Default westbound (flying left)
     this.speed = options.speed || 45; // Pixels per second
-    this.turnSpeed = options.turnSpeed || 3.0; // Max turn rate in radians/sec for realistic smooth turning
+    this.turnSpeed = options.turnSpeed !== undefined ? options.turnSpeed : 5.0; // Responsive turning for accurate path following
 
     this.state = PlaneState.CRUISING;
     this.timeInFlight = 0;
@@ -42,22 +42,51 @@ export class Plane {
   assignPath(points) {
     if (!points || points.length === 0) return;
 
-    // Eliminate backtracking:
-    // When a player finishes drawing a path, drop points that are behind the aircraft's current live location
-    // or within immediate proximity (dist <= 15).
+    // Check if the user intentionally drew a significant path behind the aircraft's current position
+    // (e.g. extending > 40px behind the plane opposite to its heading vector)
+    const cosH = Math.cos(this.heading);
+    const sinH = Math.sin(this.heading);
+
+    let maxBehind = 0;
+    for (const pt of points) {
+      const proj = (pt.x - this.x) * cosH + (pt.y - this.y) * sinH;
+      if (proj < 0) {
+        maxBehind = Math.max(maxBehind, -proj);
+      }
+    }
+
+    const hasSignificantPathBehind = maxBehind > 40;
+
     let startIndex = 0;
-    while (startIndex < points.length - 1) {
-      const pt = points[startIndex];
-      const dx = pt.x - this.x;
-      const dy = pt.y - this.y;
-      const dist = Math.hypot(dx, dy);
+    if (!hasSignificantPathBehind) {
+      // The user did not draw a significant reverse path behind the plane.
+      // Drop stale initial waypoints from where the gesture was initiated that the plane
+      // has already flown past while drawing (points close to the plane and behind/abreast).
+      while (startIndex < points.length - 1) {
+        const pt = points[startIndex];
+        const dx = pt.x - this.x;
+        const dy = pt.y - this.y;
+        const dist = Math.hypot(dx, dy);
+        const proj = dx * cosH + dy * sinH;
 
-      const forwardDot = dx * Math.cos(this.heading) + dy * Math.sin(this.heading);
-
-      if (dist <= 15 || forwardDot < -5) {
-        startIndex++;
-      } else {
-        break;
+        // If this waypoint is near the plane (dist <= 35) and behind/abreast (proj <= 5),
+        // the plane has already moved past it — drop it!
+        if (dist <= 35 && proj <= 5) {
+          startIndex++;
+        } else {
+          break;
+        }
+      }
+    } else {
+      // Significant path drawn behind: only drop points directly under the plane (dist <= 8)
+      while (startIndex < points.length - 1) {
+        const pt = points[startIndex];
+        const dist = Math.hypot(pt.x - this.x, pt.y - this.y);
+        if (dist <= 8) {
+          startIndex++;
+        } else {
+          break;
+        }
       }
     }
 
@@ -117,34 +146,27 @@ export class Plane {
       while (this.heading < -Math.PI) this.heading += 2 * Math.PI;
 
       const step = this.speed * dt;
-      const waypointRadius = this.path.length > 1 ? 16 : Math.max(12, step);
       const forwardProj = dx * Math.cos(this.heading) + dy * Math.sin(this.heading);
 
-      // Reached waypoint: exact step, arrival radius, or passed/overshot in close proximity
-      if (dist <= step) {
-        this.x = target.x;
-        this.y = target.y;
+      // Reached waypoint: exact arrival within step, tight capture radius (8px),
+      // or passed by closely in immediate proximity (dist <= 12 and forwardProj < 0)
+      if (dist <= Math.max(step, 8) || (dist <= 12 && forwardProj < 0)) {
+        if (dist <= step) {
+          this.x = target.x;
+          this.y = target.y;
+        }
         this.path.shift();
 
         if (this.path.length === 0) {
           this.state = PlaneState.CRUISING;
           this.targetAltitude = this.y;
           this.isLevelFlight = true;
+          this.heading = Math.cos(this.heading) < 0 ? Math.PI : 0;
         }
-      } else if (dist <= waypointRadius || (dist <= 22 && forwardProj < 0)) {
-        this.path.shift();
-
-        if (this.path.length === 0) {
-          this.state = PlaneState.CRUISING;
-          this.targetAltitude = this.y;
-          this.isLevelFlight = true;
-        }
-        this.x += Math.cos(this.heading) * step;
-        this.y += Math.sin(this.heading) * step;
-      } else {
-        this.x += Math.cos(this.heading) * step;
-        this.y += Math.sin(this.heading) * step;
       }
+
+      this.x += Math.cos(this.heading) * step;
+      this.y += Math.sin(this.heading) * step;
     } else {
       // Unassigned movement:
       // If descending toward assigned altitude, fly along descent vector until reached

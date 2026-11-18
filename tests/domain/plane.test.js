@@ -56,6 +56,45 @@ describe('Plane Domain Model 2D', () => {
     expect(plane.path[0]).toEqual({ x: 50, y: 200 });
   });
 
+  it('preserves drawn curved and reverse-turn waypoints without flattening them into a straight line', () => {
+    const plane = new Plane('CURVE', 50, { x: 200, y: 200, heading: 0 });
+    const curvePoints = [
+      { x: 220, y: 200 },
+      { x: 230, y: 220 },
+      { x: 210, y: 240 },
+      { x: 180, y: 230 },
+      { x: 160, y: 200 },
+    ];
+    plane.assignPath(curvePoints);
+    expect(plane.path.length).toBe(5);
+    expect(plane.path[3]).toEqual({ x: 180, y: 230 });
+  });
+
+  it('drops stale initiation waypoints that the plane already flew past while drawing', () => {
+    const plane = new Plane('STALE_DROP', 50, { x: 125, y: 100, heading: 0 });
+    const points = [
+      { x: 100, y: 100 }, // 25px behind live plane -> stale, drop!
+      { x: 115, y: 100 }, // 10px behind live plane -> stale, drop!
+      { x: 140, y: 120 }, // ahead -> keep!
+      { x: 160, y: 140 }, // ahead -> keep!
+    ];
+    plane.assignPath(points);
+    expect(plane.path.length).toBe(2);
+    expect(plane.path[0]).toEqual({ x: 140, y: 120 });
+  });
+
+  it('keeps backward path if significant path was intentionally drawn behind the plane', () => {
+    const plane = new Plane('INTENTIONAL_REVERSE', 50, { x: 200, y: 200, heading: 0 });
+    const points = [
+      { x: 185, y: 210 },
+      { x: 150, y: 220 },
+      { x: 120, y: 200 }, // 80px behind!
+    ];
+    plane.assignPath(points);
+    expect(plane.path.length).toBe(3);
+    expect(plane.path[2]).toEqual({ x: 120, y: 200 });
+  });
+
   it('rotates smoothly towards target waypoints instead of instantly snapping', () => {
     // Plane heading east (heading = 0), waypoint is straight south (heading = PI/2)
     const plane = new Plane('TURN', 50, { x: 100, y: 100, heading: 0, turnSpeed: 2.0 });

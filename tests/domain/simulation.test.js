@@ -65,4 +65,16 @@ describe('Simulation Engine with Graceful Ingress & Airspace Circulation', () =>
     expect(sim.getState().landedCount).toBe(1);
     expect(sim.getState().score).toBeGreaterThan(15);
   });
+
+  it('triggers game over crash if a plane touches the runway outside the landing entry gate', () => {
+    const sim = new Simulation({ baseSpawnInterval: 100 });
+    const plane = sim.spawnPlane({ x: 400, y: 350, fuel: 50 });
+    plane.assignPath([
+      { x: 400, y: 395 },
+    ]);
+
+    sim.update(1.2);
+    expect(sim.getState().isGameOver).toBe(true);
+    expect(sim.getState().gameOverReason).toContain('crashed');
+  });
 });

@@ -114,4 +114,29 @@ describe('CustomizationManager', () => {
     expect(CustomizationManager.selectedPlane).toBe('plane-stealth');
     expect(CustomizationManager.planeOrientation).toBe('left');
   });
+
+  it('safely falls back to default when custom is requested but no image is uploaded', () => {
+    // If no custom background was uploaded, setting bg-custom should fall back to default
+    CustomizationManager.customBgDataUrl = null;
+    CustomizationManager.setBackground('bg-custom');
+    expect(CustomizationManager.selectedBackground).toBe('default');
+
+    // If no custom plane was uploaded, setting plane-custom should fall back to plane
+    CustomizationManager.customPlaneDataUrl = null;
+    CustomizationManager.setPlanePreset('plane-custom');
+    expect(CustomizationManager.selectedPlane).toBe('plane');
+  });
+
+  it('safely falls back to defaults when loading empty custom settings from storage', () => {
+    globalThis.localStorage.getItem = vi.fn().mockReturnValue(JSON.stringify({
+      selectedBackground: 'bg-custom',
+      customBgDataUrl: null,
+      selectedPlane: 'plane-custom',
+      customPlaneDataUrl: null,
+    }));
+
+    CustomizationManager.loadFromStorage();
+    expect(CustomizationManager.selectedBackground).toBe('default');
+    expect(CustomizationManager.selectedPlane).toBe('plane');
+  });
 });

@@ -19,17 +19,25 @@ export class Simulation {
     this.width = options.width || 800;
     this.height = options.height || 450;
 
-    // Available cruising altitude corridors (well below HUD, above runway)
-    this.altitudeCorridors = [100, 150, 200, 250, 300];
+    const H = this.height;
+
+    // Available cruising altitude corridors (relative to screen height)
+    this.altitudeCorridors = [
+      Math.round(H * 0.22),
+      Math.round(H * 0.33),
+      Math.round(H * 0.44),
+      Math.round(H * 0.56),
+      Math.round(H * 0.67),
+    ];
 
     // Runway configuration (Full width along bottom)
-    this.runwayY = 395;
-    // Left landing entry gate: x: 0 to 140, y: 360 to 430
+    this.runwayY = H - 55;
+    // Left landing entry gate: x: 0 to 140, y: near runway
     this.landingGate = {
       minX: 0,
       maxX: 140,
-      minY: 360,
-      maxY: 430,
+      minY: H - 90,
+      maxY: H - 20,
     };
 
     // Collision threshold
@@ -64,9 +72,9 @@ export class Simulation {
       : (overrides.y !== undefined ? overrides.y : this.getFreeAltitude());
 
     // Spawn origin:
-    // Either from below HUD (y = 52) with graceful angular descent,
-    // or from right edge at an altitude corridor
-    const spawnType = overrides.spawnType || (Math.random() < 0.5 ? 'TOP_ANGULAR' : 'RIGHT_EDGE');
+    // Planes spawn from left edge, right edge, and top (safely below HUD)
+    const defaultSpawnTypes = ['TOP_ANGULAR', 'LEFT_EDGE', 'RIGHT_EDGE'];
+    const spawnType = overrides.spawnType || defaultSpawnTypes[Math.floor(Math.random() * defaultSpawnTypes.length)];
     let x, y, heading, isLevelFlight;
 
     if (overrides.x !== undefined && overrides.y !== undefined) {
@@ -74,19 +82,38 @@ export class Simulation {
       y = overrides.y;
       heading = overrides.heading !== undefined ? overrides.heading : Math.PI;
       isLevelFlight = overrides.isLevelFlight !== undefined ? overrides.isLevelFlight : true;
-    } else if (spawnType === 'TOP_ANGULAR') {
-      // Spawn safely below the HUD (dashboard is y: 0 to 45)
-      x = overrides.x !== undefined ? overrides.x : (200 + Math.floor(Math.random() * 500));
-      y = overrides.y !== undefined ? overrides.y : 52;
-      // Realistic graceful shallow ingress angle (~15-20 degrees descent pitch: 0.88*PI to 0.94*PI)
-      heading = overrides.heading !== undefined ? overrides.heading : (Math.PI * 0.90 + Math.random() * 0.05);
-      isLevelFlight = false;
-    } else {
-      // Right edge
-      x = overrides.x !== undefined ? overrides.x : 785;
+    } else if (spawnType === 'LEFT_EDGE') {
+      // Left edge ingress heading East into airspace
+      x = overrides.x !== undefined ? overrides.x : 15;
+      y = overrides.y !== undefined ? overrides.y : targetAltitude;
+      heading = overrides.heading !== undefined ? overrides.heading : 0; // Eastbound
+      isLevelFlight = true;
+    } else if (spawnType === 'RIGHT_EDGE') {
+      // Right edge ingress heading West into airspace
+      x = overrides.x !== undefined ? overrides.x : this.width - 15;
       y = overrides.y !== undefined ? overrides.y : targetAltitude;
       heading = overrides.heading !== undefined ? overrides.heading : Math.PI; // Westbound
       isLevelFlight = true;
+    } else {
+      // TOP_ANGULAR: Spawn safely below the HUD area spanning across the full screen width
+      x = overrides.x !== undefined
+        ? overrides.x
+        : (Math.round(this.width * 0.10) + Math.floor(Math.random() * Math.round(this.width * 0.80)));
+      y = overrides.y !== undefined
+        ? overrides.y
+        : Math.max(62, Math.min(75, Math.round(this.height * 0.14)));
+
+      // Ingress heading: angled downward towards the center of airspace
+      if (overrides.heading !== undefined) {
+        heading = overrides.heading;
+      } else if (x > this.width * 0.5) {
+        // From right side: shallow descent heading down-left (~18 degrees pitch)
+        heading = Math.PI * 0.90 + Math.random() * 0.03;
+      } else {
+        // From left side: shallow descent heading down-right (~18 degrees pitch)
+        heading = Math.PI * 0.10 - Math.random() * 0.03;
+      }
+      isLevelFlight = false;
     }
 
     const plane = new Plane(callSign, fuel, {
@@ -145,7 +172,7 @@ export class Simulation {
 
         plane.updateMovement(dt);
 
-        // Check if plane enters left runway landing entry gate
+        // 1. Check if plane enters left runway landing entry gate
         if (
           plane.state !== PlaneState.LANDING &&
           plane.state !== PlaneState.LANDED &&
@@ -156,10 +183,21 @@ export class Simulation {
         ) {
           plane.startLanding();
           plane.y = this.runwayY;
+        } else if (
+          plane.state !== PlaneState.LANDING &&
+          plane.state !== PlaneState.LANDED &&
+          plane.y >= this.runwayY - 15
+        ) {
+          // Crashed: Touched down on the runway ground outside the designated landing entry gate!
+          plane.state = PlaneState.CRASHED;
+          this.triggerGameOver(
+            `Plane ${plane.callSign} crashed on the runway! Aircraft must touch down inside the left landing entry gate.`
+          );
+          return;
         }
 
-        // Check if finished runway rollout (x > 820)
-        if (plane.state === PlaneState.LANDING && plane.x > 820) {
+        // Check if finished runway rollout (x > width + 20)
+        if (plane.state === PlaneState.LANDING && plane.x > this.width + 20) {
           plane.finishLanding();
           const landingScore = Math.round((15 + plane.fuel) * this.combo);
           this.score += landingScore;
@@ -168,18 +206,22 @@ export class Simulation {
         }
 
         // Screen edge wrapping & circulation:
-        // When unassigned plane flies off left side (< 0), it rounds and re-enters from right side
-        // at an available altitude corridor to avoid blocking new spawns!
+        // Westbound aircraft wrap to right side; Eastbound aircraft wrap to left side
         if (!plane.hasPath() && plane.state === PlaneState.CRUISING) {
           if (plane.x < -10) {
-            plane.x = 790;
+            // Flying left off-screen: wrap to right edge flying left at fresh altitude
+            plane.x = this.width - 10;
             plane.targetAltitude = this.getFreeAltitude();
             plane.y = plane.targetAltitude;
-            plane.heading = Math.PI; // Fly leftward across new corridor
-            plane.isLevelFlight = true;
-          } else if (plane.x > 820) {
-            plane.x = 790;
             plane.heading = Math.PI;
+            plane.isLevelFlight = true;
+          } else if (plane.x > this.width + 20) {
+            // Flying right off-screen: wrap to left edge flying right at fresh altitude
+            plane.x = 10;
+            plane.targetAltitude = this.getFreeAltitude();
+            plane.y = plane.targetAltitude;
+            plane.heading = 0;
+            plane.isLevelFlight = true;
           }
         }
       }
