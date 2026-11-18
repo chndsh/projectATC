@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <title>Land It! — Air Traffic Control</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    :root {
+      --sdv-bg:        #1a0e05;
+      --sdv-bg2:       #2d1a0a;
+      --sdv-card:      #3d2b1f;
+      --sdv-card2:     #2a1c10;
+      --sdv-border:    #8b6914;
+      --sdv-border2:   #5c4010;
+      --sdv-gold:      #e8c56a;
+      --sdv-green:     #4a7c59;
+      --sdv-green2:    #7ec892;
+      --sdv-cream:     #f5e6c8;
+      --sdv-muted:     #b8945a;
+      --sdv-wood:      #5c3d1e;
+      --sdv-wood2:     #7a5230;
+      --sdv-red:       #c0392b;
+      --sdv-pixel:     'Press Start 2P', monospace;
+      --sdv-mono:      'Courier New', Courier, monospace;
+    }
+
+    body {
+      background-color: var(--sdv-bg);
+      background-image: radial-gradient(ellipse at 50% 20%, var(--sdv-bg2) 0%, var(--sdv-bg) 70%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding: clamp(8px, 2vw, 16px);
+      font-family: var(--sdv-mono);
+      color: var(--sdv-cream);
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    /* =========================================================
+       SCREENS
+       ========================================================= */
+    .screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+    .screen.hidden { display: none; }
+
+    #screen-game {
+      display: flex;
+      width: 100%;
+      max-width: 100%;
+      height: calc(100dvh - clamp(16px, 4vw, 32px));
+      justify-content: center;
+      align-items: stretch;
+    }
+    #screen-game.hidden { display: none; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .screen:not(.hidden) {
+      animation: fadeIn 0.3s ease forwards;
+    }
+
+    /* =========================================================
+       LANDING SCREEN — Stardew Valley aesthetic
+       ========================================================= */
+    .landing-card {
+      background: var(--sdv-card);
+      border: 3px solid var(--sdv-border);
+      box-shadow:
+        0 0 0 1px var(--sdv-border2),
+        0 6px 0 0 #0008,
+        0 12px 32px rgba(0,0,0,0.7),
+        inset 0 1px 0 rgba(232,197,106,0.15);
+      border-radius: 6px;
+      padding: clamp(16px, 4vw, 36px) clamp(16px, 4vw, 32px);
+      width: 100%;
+      max-width: 540px;
+      text-align: center;
+      margin: auto;
+    }
+
+    .sdv-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--sdv-pixel);
+      font-size: clamp(7px, 1.6vw, 9px);
+      color: var(--sdv-gold);
+      background: rgba(232,197,106,0.08);
+      border: 2px solid var(--sdv-border2);
+      padding: 6px 12px;
+      border-radius: 4px;
+      margin-bottom: clamp(12px, 3vw, 20px);
+      letter-spacing: 0.5px;
+    }
+    .sdv-blip {
+      width: 8px; height: 8px;
+      background: var(--sdv-green2);
+      border-radius: 1px;
+      box-shadow: 0 0 6px var(--sdv-green2);
+      animation: pulse 1.6s infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.3; transform: scale(0.7); }
+    }
+
+    .game-title {
+      font-family: var(--sdv-pixel);
+      font-size: clamp(22px, 6vw, 38px);
+      color: var(--sdv-gold);
+      text-shadow:
+        2px 2px 0 #5c3d00,
+        0 0 18px rgba(232,197,106,0.35);
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+    .game-subtitle {
+      font-family: var(--sdv-pixel);
+      color: var(--sdv-muted);
+      font-size: clamp(7px, 1.8vw, 10px);
+      letter-spacing: 1px;
+      margin-bottom: clamp(18px, 4vw, 28px);
+      line-height: 1.8;
+    }
+
+    .landing-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      max-width: 320px;
+      margin: 0 auto clamp(16px, 3vw, 24px);
+    }
+
+    .briefing-box {
+      background: var(--sdv-card2);
+      border: 2px solid var(--sdv-border2);
+      border-radius: 4px;
+      padding: clamp(10px, 2.5vw, 14px);
+      text-align: left;
+      font-family: var(--sdv-mono);
+      font-size: clamp(10px, 2.2vw, 12px);
+      color: var(--sdv-muted);
+      line-height: 1.6;
+    }
+    .briefing-box span { color: var(--sdv-gold); font-weight: bold; }
+
+    /* =========================================================
+       BUTTONS
+       ========================================================= */
+    .btn-primary {
+      background: var(--sdv-green);
+      color: var(--sdv-cream);
+      border: 2px solid var(--sdv-green2);
+      box-shadow: 0 4px 0 #1e3d2a, 0 6px 12px rgba(0,0,0,0.4);
+      padding: clamp(10px, 2.5vw, 14px) clamp(16px, 3vw, 22px);
+      font-family: var(--sdv-pixel);
+      font-size: clamp(8px, 2vw, 11px);
+      border-radius: 4px;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: all 0.1s ease;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      line-height: 1.4;
+      text-align: center;
+    }
+    .btn-primary:hover {
+      background: #5a9c6a;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 0 #1e3d2a, 0 8px 16px rgba(0,0,0,0.5);
+    }
+    .btn-primary:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 #1e3d2a;
+    }
+
+    .btn-secondary {
+      background: var(--sdv-wood);
+      color: var(--sdv-cream);
+      border: 2px solid var(--sdv-border);
+      box-shadow: 0 4px 0 #2a1c0a, 0 6px 12px rgba(0,0,0,0.3);
+      padding: clamp(9px, 2.2vw, 12px) clamp(14px, 2.8vw, 20px);
+      font-family: var(--sdv-pixel);
+      font-size: clamp(7px, 1.8vw, 10px);
+      border-radius: 4px;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: all 0.1s ease;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      line-height: 1.4;
+      text-align: center;
+    }
+    .btn-secondary:hover {
+      background: var(--sdv-wood2);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 0 #2a1c0a, 0 8px 16px rgba(0,0,0,0.4);
+    }
+    .btn-secondary:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 #2a1c0a;
+    }
+
+    /* =========================================================
+       SETTINGS SCREEN
+       ========================================================= */
+    .settings-card {
+      background: var(--sdv-card);
+      border: 3px solid var(--sdv-border);
+      box-shadow: 0 0 0 1px var(--sdv-border2), 0 6px 0 0 #0008, 0 12px 32px rgba(0,0,0,0.7);
+      border-radius: 6px;
+      padding: clamp(16px, 3.5vw, 26px);
+      width: 100%;
+      max-width: 680px;
+      margin: auto;
+    }
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      border-bottom: 2px solid var(--sdv-border2);
+      padding-bottom: 12px;
+      margin-bottom: 18px;
+    }
+    .settings-header h2 {
+      font-family: var(--sdv-pixel);
+      font-size: clamp(10px, 2.4vw, 14px);
+      color: var(--sdv-gold);
+    }
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .settings-group {
+      background: var(--sdv-card2);
+      border: 2px solid var(--sdv-border2);
+      border-radius: 4px;
+      padding: clamp(10px, 2.5vw, 14px);
+    }
+    .settings-group-title {
+      font-family: var(--sdv-pixel);
+      font-size: clamp(7px, 1.6vw, 9px);
+      color: var(--sdv-gold);
+      margin-bottom: 10px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .settings-row {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;
+    }
+    .settings-preview-wrap {
+      display: flex; align-items: center; gap: 14px; margin-top: 10px;
+    }
+    .preview-canvas {
+      border: 2px solid var(--sdv-border2);
+      border-radius: 4px;
+      background: var(--sdv-bg);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+    .settings-helper {
+      font-family: var(--sdv-mono);
+      font-size: 11px;
+      color: var(--sdv-muted);
+      margin-top: 4px;
+    }
+    .toolbar-select {
+      background: var(--sdv-card2);
+      color: var(--sdv-cream);
+      border: 2px solid var(--sdv-border2);
+      border-radius: 4px;
+      padding: 7px 10px;
+      font-family: var(--sdv-mono);
+      font-size: 12px;
+      cursor: pointer;
+      outline: none;
+      min-width: 160px;
+    }
+    .toolbar-select:focus { border-color: var(--sdv-gold); }
+    .btn-action {
+      background: var(--sdv-green);
+      color: var(--sdv-cream);
+      border: 2px solid var(--sdv-green2);
+      border-radius: 4px;
+      padding: 7px 12px;
+      font-family: var(--sdv-mono);
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.1s ease;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-action:hover { background: #5a9c6a; }
+    .btn-reset {
+      background: var(--sdv-wood);
+      color: var(--sdv-cream);
+      border: 2px solid var(--sdv-border2);
+      border-radius: 4px;
+      padding: 7px 12px;
+      font-family: var(--sdv-mono);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.1s ease;
+    }
+    .btn-reset:hover { background: var(--sdv-wood2); }
+    .settings-footer {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+      border-top: 2px solid var(--sdv-border2); padding-top: 14px;
+    }
+
+    /* =========================================================
+       GAME SCREEN
+       ========================================================= */
+    .game-wrapper {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 100%;
+      height: 100%;
+    }
+    .game-navbar {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%;
+      padding: 6px 12px;
+      background: var(--sdv-card);
+      border: 2px solid var(--sdv-border);
+      border-bottom: none;
+      border-radius: 6px 6px 0 0;
+      flex-shrink: 0;
+    }
+    .game-nav-title {
+      font-family: var(--sdv-pixel);
+      font-size: clamp(8px, 1.8vw, 11px);
+      color: var(--sdv-gold);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .game-nav-actions { display: flex; align-items: center; gap: 8px; }
+    .btn-nav {
+      background: var(--sdv-card2);
+      color: var(--sdv-cream);
+      border: 2px solid var(--sdv-border2);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-family: var(--sdv-pixel);
+      font-size: clamp(6px, 1.4vw, 8px);
+      cursor: pointer;
+      transition: all 0.1s ease;
+    }
+    .btn-nav:hover { background: var(--sdv-wood); border-color: var(--sdv-gold); color: var(--sdv-gold); }
+
+    #game-container {
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      background: #090d16;
+      border: 2px solid var(--sdv-border);
+      border-top: none;
+      border-bottom: none;
+      overflow: hidden;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    .game-footer-bar {
+      margin-top: 0;
+      font-family: var(--sdv-mono);
+      font-size: clamp(9px, 1.8vw, 11px);
+      color: var(--sdv-muted);
+      text-align: center;
+      width: 100%;
+      line-height: 1.4;
+      flex-shrink: 0;
+      background: var(--sdv-card);
+      border: 2px solid var(--sdv-border);
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      padding: 6px 10px;
+    }
+    .game-footer-bar span { color: var(--sdv-gold); font-weight: bold; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(60px);
+      background: var(--sdv-card);
+      border: 2px solid var(--sdv-gold);
+      color: var(--sdv-gold);
+      padding: 10px 18px;
+      border-radius: 4px;
+      font-family: var(--sdv-pixel);
+      font-size: 8px;
+      opacity: 0; pointer-events: none;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      box-shadow: 0 4px 0 #2a1c0a, 0 6px 20px rgba(0,0,0,0.6);
+      z-index: 9999;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  </style>
+  <script type="module" crossorigin src="./assets/index-B8tNs_H_.js"></script>
+</head>
+<body>
+
+  <!-- =====================================================
+       1. LANDING SCREEN
+       ===================================================== -->
+  <div id="screen-landing" class="screen">
+    <div class="landing-card">
+      <div class="sdv-badge">
+        <div class="sdv-blip"></div>
+        <span>ATC FREQ 124.85 MHz</span>
+      </div>
+
+      <h1 class="game-title">Land It!</h1>
+      <div class="game-subtitle">Air Traffic Control</div>
+
+      <div class="landing-menu">
+        <button id="btn-start-game" class="btn-primary">✈ PLAY GAME</button>
+        <button id="btn-open-settings" class="btn-secondary">⚙ SETTINGS</button>
+      </div>
+
+      <div class="briefing-box">
+        <div>• <span>DRAW PATHS:</span> Drag from aircraft to guide them into the <span>LEFT LANDING GATE</span>.</div>
+        <div>• <span>AVOID COLLISIONS:</span> Re-drag at any time to reroute aircraft.</div>
+        <div>• <span>WATCH FUEL:</span> Aircraft burn fuel in flight — prioritise low-fuel flights!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       2. SETTINGS SCREEN
+       ===================================================== -->
+  <div id="screen-settings" class="screen hidden">
+    <div class="settings-card">
+      <div class="settings-header">
+        <h2>⚙ Settings</h2>
+        <button id="btn-settings-back" class="btn-secondary">← Back</button>
+      </div>
+
+      <div class="settings-grid">
+        <!-- Background -->
+        <div class="settings-group">
+          <div class="settings-group-title">🖼 RADAR BACKGROUND</div>
+          <div class="settings-row">
+            <select id="bg-select" class="toolbar-select">
+              <option value="default">✈ Retro Sky (Default)</option>
+              <option value="bg-night-radar">📡 Night Radar</option>
+              <option value="bg-satellite">🛰 Satellite Map</option>
+              <option value="bg-sunset">🌅 Sunset Horizon</option>
+              <option value="bg-custom" id="bg-custom-opt" disabled>📁 Custom Upload</option>
+            </select>
+            <label class="btn-action" for="bg-file-input">
+              📁 Upload
+              <input type="file" id="bg-file-input" accept="image/*" style="display:none" />
+            </label>
+            <button id="bg-reset-btn" class="btn-reset">↺ Reset</button>
+          </div>
+          <div class="settings-preview-wrap">
+            <canvas id="bg-preview-canvas" class="preview-canvas" width="160" height="90"></canvas>
+            <div>
+              <div style="font-family:var(--sdv-pixel);font-size:8px;color:var(--sdv-muted);margin-bottom:6px;">PREVIEW</div>
+              <div class="settings-helper">Upload any photo or radar image (PNG, JPG, WebP).</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Plane sprite -->
+        <div class="settings-group">
+          <div class="settings-group-title">✈ AIRCRAFT SPRITE</div>
+          <div class="settings-row">
+            <select id="plane-select" class="toolbar-select">
+              <option value="plane">✈ Airliner (Default)</option>
+              <option value="plane-concorde">🚀 Concorde Supersonic</option>
+              <option value="plane-propeller">🛩 Vintage Propeller</option>
+              <option value="plane-stealth">🛸 Stealth Jet</option>
+              <option value="plane-custom" id="plane-custom-opt" disabled>📁 Custom Upload</option>
+            </select>
+            <select id="plane-orient-select" class="toolbar-select" title="Original direction your image faces">
+              <option value="right">Faces East / Right</option>
+              <option value="up">Faces North / Up</option>
+              <option value="left">Faces West / Left</option>
+            </select>
+            <label class="btn-action" for="plane-file-input">
+              📁 Upload
+              <input type="file" id="plane-file-input" accept="image/*" style="display:none" />
+            </label>
+            <button id="plane-reset-btn" class="btn-reset">↺ Reset</button>
+          </div>
+          <div class="settings-preview-wrap">
+            <canvas id="plane-preview-canvas" class="preview-canvas" width="80" height="50"></canvas>
+            <div>
+              <div style="font-family:var(--sdv-pixel);font-size:8px;color:var(--sdv-muted);margin-bottom:6px;">PREVIEW</div>
+              <div class="settings-helper">Auto-scaled &amp; oriented to flight heading.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Audio -->
+        <div class="settings-group">
+          <div class="settings-group-title">🔊 AUDIO</div>
+          <div class="settings-row">
+            <label style="display:flex;align-items:center;gap:10px;font-size:12px;cursor:pointer;color:var(--sdv-cream);">
+              <input type="checkbox" id="audio-toggle" checked style="accent-color:var(--sdv-gold);width:16px;height:16px;cursor:pointer;" />
+              <span>Enable Chiptune Sound Effects</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-footer">
+        <button id="btn-settings-cancel" class="btn-secondary">← Back</button>
+        <button id="btn-settings-play" class="btn-primary">✈ PLAY GAME</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       3. GAME SCREEN
+       ===================================================== -->
+  <div id="screen-game" class="screen hidden">
+    <div class="game-wrapper">
+      <div class="game-navbar">
+        <div class="game-nav-title">✈ Land It!</div>
+        <div class="game-nav-actions">
+          <button id="btn-game-settings" class="btn-nav">⚙ Settings</button>
+          <button id="btn-game-menu" class="btn-nav">🏠 Menu</button>
+        </div>
+      </div>
+
+      <div id="game-container"></div>
+
+      <div class="game-footer-bar">
+        <span>DRAG FROM AIRCRAFT</span> → <span>LEFT GATE</span> to land •
+        Watch fuel • <span>SETTINGS</span> to customise
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+</body>
+</html>
